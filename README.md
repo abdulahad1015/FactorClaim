@@ -8,7 +8,7 @@ FactorClaim is a multi-tier application designed to streamline the claim process
 
 ### Technology Stack
 - **Backend**: FastAPI + MongoDB
-- **Frontend**: PyQt Desktop Application
+- **Frontend**: Electron + React Desktop Application
 - **Database**: MongoDB
 - **Authentication**: JWT-based authentication
 
@@ -16,7 +16,7 @@ FactorClaim is a multi-tier application designed to streamline the claim process
 
 The application consists of two main components:
 - **Backend**: RESTful API services with MongoDB integration
-- **DesktopApp**: PyQt-based desktop application for different user interfaces
+- **DesktopApp**: Electron + React based desktop application for different user interfaces
 
 ## User Roles & Workflow
 
