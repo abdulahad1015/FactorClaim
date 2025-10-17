@@ -45,6 +45,25 @@ const RepDashboard = () => {
     navigate('/login');
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) {
+      return 'N/A';
+    }
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+      }
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return 'Invalid Date';
+    }
+  };
+
   const handleAddMerchant = () => {
     setCurrentItem(null);
     setModalType('merchant');
@@ -154,6 +173,7 @@ const RepDashboard = () => {
               <ClaimsTab
                 claims={claims}
                 onAdd={handleAddClaim}
+                formatDate={formatDate}
               />
             )}
           </>
@@ -230,7 +250,7 @@ const MerchantsTab = ({ merchants, onAdd, onEdit, onDelete }) => {
   );
 };
 
-const ClaimsTab = ({ claims, onAdd }) => {
+const ClaimsTab = ({ claims, onAdd, formatDate }) => {
   return (
     <div className="card">
       <div className="action-bar">
@@ -258,7 +278,7 @@ const ClaimsTab = ({ claims, onAdd }) => {
           <tbody>
             {claims.map((claim) => (
               <tr key={claim._id}>
-                <td>{new Date(claim.date).toLocaleDateString()}</td>
+                <td>{formatDate(claim.date)}</td>
                 <td>{claim.merchant_id}</td>
                 <td>{claim.items?.length || 0}</td>
                 <td>

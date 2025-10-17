@@ -34,11 +34,30 @@ const FactoryDashboard = () => {
         claimsData = await claimsAPI.getUnverified();
       }
       
-      const [usersData, merchantsData, itemsData] = await Promise.all([
-        usersAPI.getAll(),
-        merchantsAPI.getAll(),
-        itemsAPI.getAll()
-      ]);
+      // Load supporting data with proper error handling for permissions
+      let usersData = [];
+      let merchantsData = [];
+      let itemsData = [];
+      
+      // Try to load users (only Admin has access)
+      try {
+        usersData = await usersAPI.getAll();
+      } catch (err) {
+        console.log('Factory user does not have permission to view users list');
+      }
+      
+      // Try to load merchants and items (all authenticated users should have access)
+      try {
+        const results = await Promise.all([
+          merchantsAPI.getAll(),
+          itemsAPI.getAll()
+        ]);
+        merchantsData = results[0];
+        itemsData = results[1];
+      } catch (err) {
+        console.error('Error loading merchants/items:', err);
+        setError(getErrorMessage(err, 'Failed to load some data'));
+      }
       
       setClaims(claimsData);
       setUsers(usersData);
@@ -77,27 +96,39 @@ const FactoryDashboard = () => {
 
   // Helper functions to get names by ID
   const getUserName = (userId) => {
-    const foundUser = users.find(u => u.id === userId);
-    return foundUser ? foundUser.name : userId;
+    if (!userId) return 'Unknown';
+    const foundUser = users.find(u => u.id === userId || u._id === userId);
+    if (foundUser) return foundUser.name;
+    // If users array is empty (no permission), show a friendly fallback
+    return users.length === 0 ? 'Rep' : `Rep (${userId.slice(-6)})`;
   };
 
   const getMerchantName = (merchantId) => {
-    const foundMerchant = merchants.find(m => m._id === merchantId);
-    return foundMerchant ? foundMerchant.name || foundMerchant.address : merchantId;
+    if (!merchantId) return 'Unknown';
+    const foundMerchant = merchants.find(m => m._id === merchantId || m.id === merchantId);
+    return foundMerchant ? foundMerchant.name || foundMerchant.address : `Merchant ${merchantId.slice(-6)}`;
   };
 
   const getItemName = (itemId) => {
-    const foundItem = items.find(i => i._id === itemId);
-    return foundItem ? `${foundItem.name} - ${foundItem.model}` : itemId;
+    if (!itemId) return 'Unknown';
+    const foundItem = items.find(i => i._id === itemId || i.id === itemId);
+    return foundItem ? `${foundItem.name} - ${foundItem.model}` : `Item ${itemId.slice(-6)}`;
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) {
+      return 'N/A';
+    }
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) {
         return 'Invalid Date';
       }
-      return date.toLocaleDateString();
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
     } catch (error) {
       return 'Invalid Date';
     }

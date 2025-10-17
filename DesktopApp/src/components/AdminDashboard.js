@@ -19,22 +19,31 @@ const AdminDashboard = () => {
 
   // Helper functions to get names by ID
   const getUserName = (userId) => {
-    const foundUser = users.find(u => u.id === userId);
-    return foundUser ? foundUser.name : userId;
+    if (!userId) return 'Unknown';
+    const foundUser = users.find(u => u.id === userId || u._id === userId);
+    return foundUser ? foundUser.name : `User ${userId.slice(-6)}`;
   };
 
   const getMerchantName = (merchantId) => {
-    const foundMerchant = merchants.find(m => m._id === merchantId);
-    return foundMerchant ? foundMerchant.name || foundMerchant.address : merchantId;
+    if (!merchantId) return 'Unknown';
+    const foundMerchant = merchants.find(m => m._id === merchantId || m.id === merchantId);
+    return foundMerchant ? foundMerchant.name || foundMerchant.address : `Merchant ${merchantId.slice(-6)}`;
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) {
+      return 'N/A';
+    }
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) {
         return 'Invalid Date';
       }
-      return date.toLocaleDateString();
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
     } catch (error) {
       return 'Invalid Date';
     }

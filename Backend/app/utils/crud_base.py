@@ -30,9 +30,12 @@ class CRUDBase:
         def _convert(value: Any) -> Any:
             # Import here to avoid top-level dependency issues
             from bson import ObjectId as _ObjectId
+            from datetime import datetime as _datetime
 
             if isinstance(value, _ObjectId):
                 return str(value)
+            if isinstance(value, _datetime):
+                return value.isoformat()
             if isinstance(value, dict):
                 return {k: _convert(v) for k, v in value.items()}
             if isinstance(value, list):

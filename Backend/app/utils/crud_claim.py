@@ -25,6 +25,17 @@ class CRUDClaim(CRUDBase):
             if "item_id" in item:
                 item["item_id"] = ObjectId(item["item_id"])
         
+        # Add timestamp fields if not present
+        now = datetime.utcnow()
+        if "date" not in claim_data:
+            claim_data["date"] = now
+        if "created_at" not in claim_data:
+            claim_data["created_at"] = now
+        if "updated_at" not in claim_data:
+            claim_data["updated_at"] = now
+        if "verified" not in claim_data:
+            claim_data["verified"] = False
+        
         return await self.create(claim_data)
     
     async def get_claim(self, claim_id: str) -> Optional[Dict[str, Any]]:
