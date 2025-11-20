@@ -14,6 +14,7 @@ const AdminDashboard = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [currentItem, setCurrentItem] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -124,7 +125,13 @@ const AdminDashboard = () => {
   };
 
   const handleAddUser = () => {
-    setCurrentItem(null);
+    setCurrentUser(null);
+    setModalType('user');
+    setShowModal(true);
+  };
+
+  const handleEditUser = (user) => {
+    setCurrentUser(user);
     setModalType('user');
     setShowModal(true);
   };
@@ -142,7 +149,16 @@ const AdminDashboard = () => {
 
   const handleSaveUser = async (userData) => {
     try {
-      await usersAPI.create(userData);
+      if (currentUser) {
+        // Remove empty password so we don't send blank updates
+        const dataToSend = { ...userData };
+        if (!dataToSend.password) {
+          delete dataToSend.password;
+        }
+        await usersAPI.update(currentUser._id || currentUser.id, dataToSend);
+      } else {
+        await usersAPI.create(userData);
+      }
       setShowModal(false);
       loadData();
     } catch (err) {
@@ -221,6 +237,7 @@ const AdminDashboard = () => {
               <UsersTab
                 users={users}
                 onAdd={handleAddUser}
+                onEdit={handleEditUser}
                 onDelete={handleDeleteUser}
               />
             )}
@@ -245,6 +262,7 @@ const AdminDashboard = () => {
       )}
       {showModal && modalType === 'user' && (
         <UserModal
+          user={currentUser}
           onSave={handleSaveUser}
           onClose={() => setShowModal(false)}
         />
@@ -305,7 +323,7 @@ const ItemsTab = ({ items, onAdd, onEdit, onDelete }) => {
   );
 };
 
-const UsersTab = ({ users, onAdd, onDelete }) => {
+const UsersTab = ({ users, onAdd, onEdit, onDelete }) => {
   return (
     <div className="card">
       <div className="action-bar">
@@ -336,10 +354,9 @@ const UsersTab = ({ users, onAdd, onDelete }) => {
                 <td>{user.name}</td>
                 <td><span className="badge">{user.type}</span></td>
                 <td>{user.contact_no}</td>
-                <td>
-                  <button className="btn btn-danger" onClick={() => onDelete(user._id)}>
-                    Delete
-                  </button>
+                <td style={{ display: 'flex', gap: '6px' }}>
+                  <button className="btn btn-secondary" onClick={() => onEdit(user)}>Edit</button>
+                  <button className="btn btn-danger" onClick={() => onDelete(user._id)}>Delete</button>
                 </td>
               </tr>
             ))}
@@ -547,11 +564,16 @@ const ItemModal = ({ item, onSave, onClose }) => {
   );
 };
 
-const UserModal = ({ onSave, onClose }) => {
+const UserModal = ({ user, onSave, onClose }) => {
+  const isEdit = Boolean(user);
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
-    type: 'Rep',
-    contact_no: '',
+    name: user?.name || '',
+    type: user?.type || 'Rep',
+    contact_no: user?.contact_no || '',
+    email: user?.email || '',
+    password: '',
+    is_active: user?.is_active ?? true,
   });
 
   const handleSubmit = (e) => {
@@ -563,7 +585,7 @@ const UserModal = ({ onSave, onClose }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="modal-title">Add User</h2>
+          <h2 className="modal-title">{isEdit ? 'Edit User' : 'Add User'}</h2>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         <form onSubmit={handleSubmit}>
@@ -600,12 +622,62 @@ const UserModal = ({ onSave, onClose }) => {
               required
             />
           </div>
+          <div className="form-group">
+            <label className="form-label">Email</label>
+            <input
+              type="email"
+              className="form-control"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder="user@example.com"
+            />
+          </div>
+          {(!isEdit || showPassword) && (
+            <div className="form-group">
+              <label className="form-label">{isEdit ? 'New Password' : 'Password *'}</label>
+              <input
+                type="password"
+                className="form-control"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                placeholder={isEdit ? 'Leave blank to keep current' : 'Minimum 6 characters'}
+                {...(isEdit ? {} : { required: true, minLength: 6 })}
+              />
+            </div>
+          )}
+          {isEdit && (
+            <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                id="changePasswordToggle"
+                type="checkbox"
+                checked={showPassword}
+                onChange={(e) => {
+                  setShowPassword(e.target.checked);
+                  if (!e.target.checked) {
+                    setFormData({ ...formData, password: '' });
+                  }
+                }}
+              />
+              <label htmlFor="changePasswordToggle" className="form-label" style={{ margin: 0 }}>Change Password</label>
+            </div>
+          )}
+          {isEdit && (
+            <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                id="activeToggle"
+                type="checkbox"
+                checked={formData.is_active}
+                onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+              />
+              <label htmlFor="activeToggle" className="form-label" style={{ margin: 0 }}>Active</label>
+            </div>
+          )}
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Cancel
             </button>
             <button type="submit" className="btn btn-primary">
-              Save
+              {isEdit ? 'Update' : 'Save'}
             </button>
           </div>
         </form>

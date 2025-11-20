@@ -66,6 +66,11 @@ class CRUDUser(CRUDBase):
     ) -> Optional[Dict[str, Any]]:
         """Update user"""
         user_data = user_in.dict(exclude_unset=True)
+        # If password provided and not empty, hash and store as password_hash
+        if "password" in user_data:
+            password = user_data.pop("password")
+            if password and password.strip():  # Only hash non-empty passwords
+                user_data["password_hash"] = self.get_password_hash(password)
         return await self.update(user_id, user_data)
     
     async def delete_user(self, user_id: str) -> bool:

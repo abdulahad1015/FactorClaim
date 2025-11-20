@@ -56,6 +56,7 @@ class UserUpdate(BaseModel):
     contact_no: Optional[str] = Field(None, min_length=10, max_length=15)
     email: Optional[str] = Field(None, max_length=100)
     is_active: Optional[bool] = None
+    password: Optional[str] = Field(None, min_length=6, max_length=100)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
