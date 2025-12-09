@@ -32,6 +32,7 @@ class CRUDUser(CRUDBase):
         """Create a new user"""
         user_data = user_in.dict()
         user_data["password_hash"] = self.get_password_hash(user_data.pop("password"))
+        user_data["is_active"] = True  # Set default active status
         return await self.create(user_data)
     
     async def get_user(self, user_id: str) -> Optional[Dict[str, Any]]:
@@ -84,7 +85,7 @@ class CRUDUser(CRUDBase):
             return None
         if not self.verify_password(password, user["password_hash"]):
             return None
-        if not user["is_active"]:
+        if not user.get("is_active", True):
             return None
         return user
     
