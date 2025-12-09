@@ -23,17 +23,17 @@ class CRUDItem(CRUDBase):
         self,
         skip: int = 0,
         limit: int = 100,
-        name: Optional[str] = None,
-        model: Optional[str] = None,
+        model_name: Optional[str] = None,
+        item_type: Optional[str] = None,
         batch: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Get items with optional filters"""
         filter_dict = {}
         
-        if name:
-            filter_dict["name"] = {"$regex": name, "$options": "i"}
-        if model:
-            filter_dict["model"] = {"$regex": model, "$options": "i"}
+        if model_name:
+            filter_dict["model_name"] = {"$regex": model_name, "$options": "i"}
+        if item_type:
+            filter_dict["item_type"] = {"$regex": item_type, "$options": "i"}
         if batch:
             filter_dict["batch"] = batch
         
@@ -53,11 +53,11 @@ class CRUDItem(CRUDBase):
         return await self.delete(item_id)
     
     async def search_items(self, search_term: str) -> List[Dict[str, Any]]:
-        """Search items by name, model, or batch"""
+        """Search items by model_name, item_type, or batch"""
         filter_dict = {
             "$or": [
-                {"name": {"$regex": search_term, "$options": "i"}},
-                {"model": {"$regex": search_term, "$options": "i"}},
+                {"model_name": {"$regex": search_term, "$options": "i"}},
+                {"item_type": {"$regex": search_term, "$options": "i"}},
                 {"batch": {"$regex": search_term, "$options": "i"}},
                 {"supplier": {"$regex": search_term, "$options": "i"}},
                 {"contractor": {"$regex": search_term, "$options": "i"}}

@@ -112,7 +112,7 @@ const FactoryDashboard = () => {
   const getItemName = (itemId) => {
     if (!itemId) return 'Unknown';
     const foundItem = items.find(i => i._id === itemId || i.id === itemId);
-    return foundItem ? `${foundItem.name} - ${foundItem.model}` : `Item ${itemId.slice(-6)}`;
+    return foundItem ? `${foundItem.model_name} - ${foundItem.item_type}` : `Item ${itemId.slice(-6)}`;
   };
 
   const formatDate = (dateString) => {

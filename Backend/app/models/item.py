@@ -35,8 +35,8 @@ class PyObjectId(ObjectId):
 class Item(BaseModel):
     """Item model for inventory management"""
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
-    name: str = Field(..., min_length=1, max_length=100)
-    model: str = Field(..., min_length=1, max_length=50)
+    model_name: str = Field(..., min_length=1, max_length=100)
+    item_type: str = Field(..., min_length=1, max_length=50)
     batch: str = Field(..., min_length=1, max_length=50)
     production_date: datetime
     wattage: float = Field(..., gt=0)
@@ -52,8 +52,8 @@ class Item(BaseModel):
         json_encoders = {ObjectId: str}
         json_schema_extra = {
             "example": {
-                "name": "LED Light Bulb",
-                "model": "LED-100W",
+                "model_name": "LED-100W-2024",
+                "item_type": "LED Bulb",
                 "batch": "B2024001",
                 "production_date": "2024-01-15T00:00:00Z",
                 "wattage": 100.0,
@@ -66,8 +66,8 @@ class Item(BaseModel):
 
 class ItemCreate(BaseModel):
     """Item creation model"""
-    name: str = Field(..., min_length=1, max_length=100)
-    model: str = Field(..., min_length=1, max_length=50)
+    model_name: str = Field(..., min_length=1, max_length=100)
+    item_type: str = Field(..., min_length=1, max_length=50)
     batch: str = Field(..., min_length=1, max_length=50)
     production_date: datetime
     wattage: float = Field(..., gt=0)
@@ -78,8 +78,8 @@ class ItemCreate(BaseModel):
 
 class ItemUpdate(BaseModel):
     """Item update model"""
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    model: Optional[str] = Field(None, min_length=1, max_length=50)
+    model_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    item_type: Optional[str] = Field(None, min_length=1, max_length=50)
     batch: Optional[str] = Field(None, min_length=1, max_length=50)
     production_date: Optional[datetime] = None
     wattage: Optional[float] = Field(None, gt=0)

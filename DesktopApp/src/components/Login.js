@@ -4,8 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import './Login.css';
 
 const Login = () => {
-  const [name, setName] = useState('');
-  const [userType, setUserType] = useState('Admin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -16,16 +16,23 @@ const Login = () => {
     setError('');
     setLoading(true);
 
-    if (!name.trim()) {
-      setError('Please enter your name');
+    if (!email.trim()) {
+      setError('Please enter your email');
       setLoading(false);
       return;
     }
 
-    const result = await login(name, userType);
+    if (!password.trim()) {
+      setError('Please enter your password');
+      setLoading(false);
+      return;
+    }
+
+    const result = await login(email, password);
     
     if (result.success) {
-      // Redirect based on user type
+      // Redirect based on user type from response
+      const userType = result.user?.type;
       switch (userType) {
         case 'Admin':
           navigate('/admin');
@@ -65,31 +72,31 @@ const Login = () => {
           )}
           
           <div className="form-group">
-            <label htmlFor="name" className="form-label">Name</label>
+            <label htmlFor="email" className="form-label">Email</label>
             <input
-              type="text"
-              id="name"
+              type="email"
+              id="email"
               className="form-control"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Enter your name"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your email"
               disabled={loading}
+              autoComplete="email"
             />
           </div>
           
           <div className="form-group">
-            <label htmlFor="userType" className="form-label">User Type</label>
-            <select
-              id="userType"
+            <label htmlFor="password" className="form-label">Password</label>
+            <input
+              type="password"
+              id="password"
               className="form-control"
-              value={userType}
-              onChange={(e) => setUserType(e.target.value)}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
               disabled={loading}
-            >
-              <option value="Admin">Admin</option>
-              <option value="Rep">Representative</option>
-              <option value="Factory">Factory User</option>
-            </select>
+              autoComplete="current-password"
+            />
           </div>
           
           <button 

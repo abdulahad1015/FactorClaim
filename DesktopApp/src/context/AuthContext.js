@@ -23,13 +23,13 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = async (name, type) => {
+  const login = async (email, password) => {
     try {
-      const response = await authAPI.login(name, type);
-      localStorage.setItem('token', response.access_token);
+      const response = await authAPI.login(email, password);
+      localStorage.setItem('token', response.token.access_token);
       localStorage.setItem('user', JSON.stringify(response.user));
       setUser(response.user);
-      return { success: true };
+      return { success: true, user: response.user };
     } catch (error) {
       console.error('Login error:', error);
       return { 

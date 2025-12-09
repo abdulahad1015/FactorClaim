@@ -18,8 +18,8 @@ async def create_item(item: ItemCreate):
 async def read_items(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    name: Optional[str] = Query(None),
-    model: Optional[str] = Query(None),
+    model_name: Optional[str] = Query(None),
+    item_type: Optional[str] = Query(None),
     batch: Optional[str] = Query(None),
     current_user: dict = Depends(get_current_active_user)
 ):
@@ -27,8 +27,8 @@ async def read_items(
     return await item_crud.get_items(
         skip=skip, 
         limit=limit, 
-        name=name, 
-        model=model, 
+        model_name=model_name, 
+        item_type=item_type, 
         batch=batch
     )
 
@@ -77,5 +77,5 @@ async def search_items(
     search_term: str,
     current_user: dict = Depends(get_current_active_user)
 ):
-    """Search items by name, model, batch, supplier, or contractor"""
+    """Search items by model_name, item_type, batch, supplier, or contractor"""
     return await item_crud.search_items(search_term)
