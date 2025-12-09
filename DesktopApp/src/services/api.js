@@ -115,6 +115,11 @@ export const itemsAPI = {
     return response.data;
   },
   
+  getByBatch: async (batchCode) => {
+    const response = await api.get(`/api/items/batch/${batchCode}`);
+    return response.data;
+  },
+  
   create: async (itemData) => {
     const response = await api.post('/api/items/', itemData);
     return response.data;

@@ -423,20 +423,80 @@ const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
   const [selectedItem, setSelectedItem] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [itemNotes, setItemNotes] = useState('');
+  const [batchCode, setBatchCode] = useState('');
+  const [scanError, setScanError] = useState('');
+
+  const handleBatchScan = async (e) => {
+    if (e.key === 'Enter' && batchCode.trim()) {
+      e.preventDefault();
+      setScanError('');
+      try {
+        const item = await itemsAPI.getByBatch(batchCode.trim());
+        if (item) {
+          // Check if item already exists in the list
+          const existingItemIndex = formData.items.findIndex(i => i.item_id === item._id);
+          
+          if (existingItemIndex >= 0) {
+            // Item exists, increment quantity
+            const updatedItems = [...formData.items];
+            updatedItems[existingItemIndex].quantity += parseInt(quantity);
+            setFormData({
+              ...formData,
+              items: updatedItems
+            });
+          } else {
+            // New item, add to list
+            setFormData({
+              ...formData,
+              items: [...formData.items, {
+                item_id: item._id,
+                item_name: item.model_name,
+                wattage: item.wattage,
+                batch: item.batch,
+                quantity: parseInt(quantity),
+                notes: itemNotes
+              }]
+            });
+          }
+          setBatchCode('');
+          setQuantity(1);
+          setItemNotes('');
+        }
+      } catch (err) {
+        setScanError(getErrorMessage(err, 'Item not found. Please check the batch code.'));
+      }
+    }
+  };
 
   const handleAddItem = () => {
     if (selectedItem && quantity > 0) {
       const item = items.find(i => i._id === selectedItem);
       if (item) {
-        setFormData({
-          ...formData,
-          items: [...formData.items, { 
-            item_id: item._id, 
-            item_name: item.model_name, // For display only
-            quantity: parseInt(quantity),
-            notes: itemNotes
-          }]
-        });
+        // Check if item already exists in the list
+        const existingItemIndex = formData.items.findIndex(i => i.item_id === item._id);
+        
+        if (existingItemIndex >= 0) {
+          // Item exists, increment quantity
+          const updatedItems = [...formData.items];
+          updatedItems[existingItemIndex].quantity += parseInt(quantity);
+          setFormData({
+            ...formData,
+            items: updatedItems
+          });
+        } else {
+          // New item, add to list
+          setFormData({
+            ...formData,
+            items: [...formData.items, { 
+              item_id: item._id, 
+              item_name: item.model_name,
+              wattage: item.wattage,
+              batch: item.batch,
+              quantity: parseInt(quantity),
+              notes: itemNotes
+            }]
+          });
+        }
         setSelectedItem('');
         setQuantity(1);
         setItemNotes('');
@@ -497,6 +557,27 @@ const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
 
           <div className="form-group">
             <label className="form-label">Add Items</label>
+            
+            {/* Barcode Scanner Input */}
+            <div style={{ marginBottom: '15px', padding: '10px', background: '#f8f9fa', borderRadius: '4px' }}>
+              <label className="form-label" style={{ fontSize: '14px', marginBottom: '5px', display: 'block' }}>🔍 Scan Barcode (Batch Code)</label>
+              <input
+                type="text"
+                className="form-control"
+                value={batchCode}
+                onChange={(e) => setBatchCode(e.target.value)}
+                onKeyPress={handleBatchScan}
+                placeholder="Scan barcode or enter batch code, then press Enter"
+                style={{ marginBottom: '5px' }}
+              />
+              {scanError && <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '5px' }}>{scanError}</div>}
+              <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '5px' }}>Tip: Scan the item barcode and it will be added automatically</div>
+            </div>
+
+            {/* Manual Selection */}
+            <div style={{ marginBottom: '10px' }}>
+              <label className="form-label" style={{ fontSize: '14px' }}>Or Select Manually</label>
+            </div>
             <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
               <select
                 className="form-control"
@@ -544,6 +625,8 @@ const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
                 <thead>
                   <tr>
                     <th>Item</th>
+                    <th>Wattage</th>
+                    <th>Batch</th>
                     <th>Quantity</th>
                     <th>Notes</th>
                     <th>Action</th>
@@ -553,6 +636,8 @@ const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
                   {formData.items.map((item, index) => (
                     <tr key={index}>
                       <td>{item.item_name}</td>
+                      <td>{item.wattage}W</td>
+                      <td>{item.batch}</td>
                       <td>{item.quantity}</td>
                       <td>{item.notes || '-'}</td>
                       <td>

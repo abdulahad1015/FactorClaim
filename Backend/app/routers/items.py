@@ -33,6 +33,23 @@ async def read_items(
     )
 
 
+@router.get("/batch/{batch_code:path}", response_model=dict)
+async def read_item_by_batch(
+    batch_code: str,
+    current_user: dict = Depends(get_current_active_user)
+):
+    """Get item by batch code (for barcode scanning) - supports flexible matching"""
+    print(f"[DEBUG] Searching for batch code: '{batch_code}' (length: {len(batch_code)})")
+    item = await item_crud.search_by_barcode(batch_code)
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Item with barcode '{batch_code}' not found. Please verify the item exists in inventory."
+        )
+    print(f"[DEBUG] Found item: {item.get('model_name')} - Batch: {item.get('batch')}")
+    return item
+
+
 @router.get("/{item_id}", response_model=dict)
 async def read_item(
     item_id: str,

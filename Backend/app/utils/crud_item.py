@@ -19,6 +19,26 @@ class CRUDItem(CRUDBase):
         """Get item by ID"""
         return await self.get(item_id)
     
+    async def get_item_by_batch(self, batch: str) -> Optional[Dict[str, Any]]:
+        """Get item by batch code (for barcode scanning)"""
+        return await self.collection.find_one({"batch": batch})
+    
+    async def search_by_barcode(self, barcode: str) -> Optional[Dict[str, Any]]:
+        """Search item by barcode - batch code search with exact and case-insensitive matching"""
+        # Clean the barcode (trim whitespace)
+        barcode = barcode.strip()
+        
+        # Try exact batch match first (most common case)
+        item = await self.collection.find_one({"batch": barcode})
+        if item:
+            return self.serialize_doc(item)
+        
+        # Try case-insensitive batch match
+        item = await self.collection.find_one({
+            "batch": {"$regex": f"^{barcode}$", "$options": "i"}
+        })
+        return self.serialize_doc(item) if item else None
+    
     async def get_items(
         self,
         skip: int = 0,
