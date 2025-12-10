@@ -4,19 +4,22 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 module.exports = {
   packagerConfig: {
     asar: true,
+    extraResource: [
+      './build'
+    ],
   },
   rebuildConfig: {},
   makers: [
+    // {
+    //   name: '@electron-forge/maker-zip',
+    //   platforms: ['win32'],
+    // },
     {
       name: '@electron-forge/maker-squirrel',
       config: {
         authors: 'FactorClaim',
         description: 'FactorClaim Desktop Application'
       },
-    },
-    {
-      name: '@electron-forge/maker-zip',
-      platforms: ['darwin'],
     },
     {
       name: '@electron-forge/maker-deb',

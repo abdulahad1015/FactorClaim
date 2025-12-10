@@ -1,6 +1,8 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const isDev = require('electron-is-dev');
+
+// Check if running in development
+const isDev = !app.isPackaged;
 
 let mainWindow;
 
@@ -14,7 +16,6 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: false,
-      webSecurity: false,  // Disable web security to allow CORS requests
       preload: path.join(__dirname, 'preload.js')
     },
     icon: path.join(__dirname, 'icon.png'),
@@ -23,21 +24,48 @@ function createWindow() {
   });
 
   // Load the app
-  const startUrl = isDev
-    ? 'http://localhost:3000'
-    : `file://${path.join(__dirname, '../build/index.html')}`;
+  let startUrl;
+  if (isDev) {
+    startUrl = 'http://localhost:3000';
+  } else {
+    // When packaged, build is in resources folder
+    startUrl = `file://${path.join(process.resourcesPath, 'build', 'index.html')}`;
+  }
+
+  console.log('isDev:', isDev);
+  console.log('Loading URL:', startUrl);
+  console.log('__dirname:', __dirname);
 
   mainWindow.loadURL(startUrl);
+
+  // Log any loading errors
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Failed to load:', errorCode, errorDescription);
+  });
+
+  // Log when page finishes loading
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('Page loaded successfully');
+    // Execute a script to check if React mounted
+    mainWindow.webContents.executeJavaScript(`
+      console.log('Checking if React is mounted...');
+      console.log('Root element:', document.getElementById('root'));
+      console.log('Root innerHTML length:', document.getElementById('root').innerHTML.length);
+    `).catch(err => console.error('Failed to execute script:', err));
+  });
+
+  // Catch any console messages from the renderer
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log(`Renderer console [${level}]:`, message);
+  });
 
   // Show window when ready
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
   });
 
-  // Open DevTools in development mode
-  if (isDev) {
-    mainWindow.webContents.openDevTools();
-  }
+  // Open DevTools to debug
+  mainWindow.webContents.openDevTools();
 
   mainWindow.on('closed', () => {
     mainWindow = null;
