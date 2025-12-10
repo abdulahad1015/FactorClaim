@@ -208,7 +208,7 @@ const AdminDashboard = () => {
 
       <div className="dashboard">
         <div className="dashboard-header">
-          <h1 className="dashboard-title">Admin Dashboard</h1>
+          <h1 className="dashboard-title">Admin Dashboard testing</h1>
           <p className="dashboard-subtitle">Manage items, users, and view statistics</p>
         </div>
 
