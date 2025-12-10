@@ -14,6 +14,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: false,
+      webSecurity: false,  // Disable web security to allow CORS requests
       preload: path.join(__dirname, 'preload.js')
     },
     icon: path.join(__dirname, 'icon.png'),
