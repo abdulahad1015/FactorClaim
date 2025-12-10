@@ -43,6 +43,9 @@ const Login = () => {
         case 'Factory':
           navigate('/factory');
           break;
+        case 'Warehouse Manager':
+          navigate('/warehouse');
+          break;
         default:
           navigate('/');
       }

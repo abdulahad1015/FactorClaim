@@ -4,6 +4,7 @@ import Login from './components/Login';
 import AdminDashboard from './components/AdminDashboard';
 import RepDashboard from './components/RepDashboard';
 import FactoryDashboard from './components/FactoryDashboard';
+import WarehouseDashboard from './components/WarehouseDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import './App.css';
@@ -36,6 +37,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['Factory']}>
                   <FactoryDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/warehouse/*"
+              element={
+                <ProtectedRoute allowedRoles={['Warehouse Manager']}>
+                  <WarehouseDashboard />
                 </ProtectedRoute>
               }
             />

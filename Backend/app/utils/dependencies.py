@@ -74,5 +74,8 @@ class RoleChecker:
 require_admin = RoleChecker([UserType.ADMIN.value])
 require_rep = RoleChecker([UserType.REP.value])
 require_factory = RoleChecker([UserType.FACTORY.value])
+require_warehouse_manager = RoleChecker([UserType.WAREHOUSE_MANAGER.value])
 require_admin_or_rep = RoleChecker([UserType.ADMIN.value, UserType.REP.value])
 require_admin_or_factory = RoleChecker([UserType.ADMIN.value, UserType.FACTORY.value])
+require_admin_or_warehouse = RoleChecker([UserType.ADMIN.value, UserType.WAREHOUSE_MANAGER.value])
+require_merchant_managers = RoleChecker([UserType.ADMIN.value, UserType.WAREHOUSE_MANAGER.value])

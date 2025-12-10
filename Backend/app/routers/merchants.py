@@ -2,15 +2,15 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from ..models.merchant import MerchantCreate, MerchantUpdate
 from ..utils.crud_merchant import merchant_crud
-from ..utils.dependencies import require_admin_or_rep, get_current_active_user
+from ..utils.dependencies import require_merchant_managers, get_current_active_user
 
 
 router = APIRouter()
 
 
-@router.post("/", response_model=dict, dependencies=[Depends(require_admin_or_rep)])
+@router.post("/", response_model=dict, dependencies=[Depends(require_merchant_managers)])
 async def create_merchant(merchant: MerchantCreate):
-    """Create a new merchant (Admin or Rep)"""
+    """Create a new merchant (Admin or Warehouse Manager)"""
     return await merchant_crud.create_merchant(merchant)
 
 
@@ -44,9 +44,9 @@ async def read_merchant(
     return merchant
 
 
-@router.put("/{merchant_id}", response_model=dict, dependencies=[Depends(require_admin_or_rep)])
+@router.put("/{merchant_id}", response_model=dict, dependencies=[Depends(require_merchant_managers)])
 async def update_merchant(merchant_id: str, merchant: MerchantUpdate):
-    """Update merchant (Admin or Rep)"""
+    """Update merchant (Admin or Warehouse Manager)"""
     updated_merchant = await merchant_crud.update_merchant(merchant_id, merchant)
     if updated_merchant is None:
         raise HTTPException(
@@ -56,9 +56,9 @@ async def update_merchant(merchant_id: str, merchant: MerchantUpdate):
     return updated_merchant
 
 
-@router.delete("/{merchant_id}", dependencies=[Depends(require_admin_or_rep)])
+@router.delete("/{merchant_id}", dependencies=[Depends(require_merchant_managers)])
 async def delete_merchant(merchant_id: str):
-    """Delete merchant (Admin or Rep)"""
+    """Delete merchant (Admin or Warehouse Manager)"""
     deleted = await merchant_crud.delete_merchant(merchant_id)
     if not deleted:
         raise HTTPException(

@@ -11,6 +11,7 @@ class UserType(str, Enum):
     ADMIN = "Admin"
     REP = "Rep"
     FACTORY = "Factory"
+    WAREHOUSE_MANAGER = "Warehouse Manager"
 
 
 class User(BaseModel):
