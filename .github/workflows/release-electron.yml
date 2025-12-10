@@ -40,15 +40,23 @@ jobs:
     
     - name: Package Electron app
       working-directory: ./DesktopApp
-      run: npm run electron-build-win
+      run: npm run make
+    
+    - name: Create app-update.yml
+      working-directory: ./DesktopApp
+      run: |
+        echo "provider: github" > out/make/squirrel.windows/x64/app-update.yml
+        echo "owner: abdulahad1015" >> out/make/squirrel.windows/x64/app-update.yml
+        echo "repo: FactorClaim" >> out/make/squirrel.windows/x64/app-update.yml
     
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          DesktopApp/dist/*.exe
-          DesktopApp/dist/*.yml
-          DesktopApp/dist/*.blockmap
+          DesktopApp/out/make/squirrel.windows/x64/*.exe
+          DesktopApp/out/make/squirrel.windows/x64/*.nupkg
+          DesktopApp/out/make/squirrel.windows/x64/RELEASES
+          DesktopApp/out/make/squirrel.windows/x64/app-update.yml
         draft: false
         prerelease: false
         generate_release_notes: true
