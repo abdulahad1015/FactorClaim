@@ -40,15 +40,15 @@ jobs:
     
     - name: Package Electron app
       working-directory: ./DesktopApp
-      run: npm run make
+      run: npm run electron-build-win
     
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          DesktopApp/out/make/squirrel.windows/x64/*.exe
-          DesktopApp/out/make/squirrel.windows/x64/*.nupkg
-          DesktopApp/out/make/squirrel.windows/x64/RELEASES
+          DesktopApp/dist/*.exe
+          DesktopApp/dist/*.yml
+          DesktopApp/dist/*.blockmap
         draft: false
         prerelease: false
         generate_release_notes: true
