@@ -1,6 +1,11 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 
+// Handle Squirrel events on Windows
+if (require('electron-squirrel-startup')) {
+  app.quit();
+}
+
 // Check if running in development
 const isDev = !app.isPackaged;
 
@@ -32,40 +37,17 @@ function createWindow() {
     startUrl = `file://${path.join(process.resourcesPath, 'build', 'index.html')}`;
   }
 
-  console.log('isDev:', isDev);
-  console.log('Loading URL:', startUrl);
-  console.log('__dirname:', __dirname);
-
   mainWindow.loadURL(startUrl);
-
-  // Log any loading errors
-  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-    console.error('Failed to load:', errorCode, errorDescription);
-  });
-
-  // Log when page finishes loading
-  mainWindow.webContents.on('did-finish-load', () => {
-    console.log('Page loaded successfully');
-    // Execute a script to check if React mounted
-    mainWindow.webContents.executeJavaScript(`
-      console.log('Checking if React is mounted...');
-      console.log('Root element:', document.getElementById('root'));
-      console.log('Root innerHTML length:', document.getElementById('root').innerHTML.length);
-    `).catch(err => console.error('Failed to execute script:', err));
-  });
-
-  // Catch any console messages from the renderer
-  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
-    console.log(`Renderer console [${level}]:`, message);
-  });
 
   // Show window when ready
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
   });
 
-  // Open DevTools to debug
-  mainWindow.webContents.openDevTools();
+  // Open DevTools only in development mode
+  if (isDev) {
+    mainWindow.webContents.openDevTools();
+  }
 
   mainWindow.on('closed', () => {
     mainWindow = null;

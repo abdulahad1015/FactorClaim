@@ -18,7 +18,12 @@ module.exports = {
       name: '@electron-forge/maker-squirrel',
       config: {
         authors: 'FactorClaim',
-        description: 'FactorClaim Desktop Application'
+        description: 'FactorClaim Desktop Application',
+        name: 'FactorClaim',
+        noMsi: true,
+        setupExe: 'FactorClaimSetup.exe',
+        createDesktopShortcut: true,
+        createStartMenuShortcut: true
       },
     },
     {

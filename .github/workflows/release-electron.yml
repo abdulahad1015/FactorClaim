@@ -27,6 +27,26 @@ jobs:
         cache: 'npm'
         cache-dependency-path: DesktopApp/package-lock.json
     
+    - name: Cache Electron
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/electron
+          ~/.cache/electron-builder
+          ~/AppData/Local/electron/Cache
+          ~/AppData/Local/electron-builder/Cache
+        key: ${{ runner.os }}-electron-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-electron-
+    
+    - name: Cache build
+      uses: actions/cache@v4
+      with:
+        path: DesktopApp/build
+        key: ${{ runner.os }}-build-${{ hashFiles('DesktopApp/src/**', 'DesktopApp/public/**') }}
+        restore-keys: |
+          ${{ runner.os }}-build-
+    
     - name: Install dependencies
       working-directory: ./DesktopApp
       run: npm ci
