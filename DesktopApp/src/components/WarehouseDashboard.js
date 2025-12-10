@@ -554,6 +554,20 @@ const ViewClaimModal = ({ claim, items, merchants, users, getUserName, getMercha
     return item ? `${item.model_name} (${item.wattage}W - ${item.batch})` : 'Unknown Item';
   };
 
+  const getStatusBadge = (status) => {
+    const statusColors = {
+      'Bilty Pending': 'badge-warning',
+      'Approval Pending': 'badge-info',
+      'Approved': 'badge-success',
+      'Rejected': 'badge-danger'
+    };
+    return (
+      <span className={`badge ${statusColors[status] || 'badge-secondary'}`}>
+        {status || 'Pending'}
+      </span>
+    );
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" style={{ maxWidth: '800px', maxHeight: '90vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
@@ -568,6 +582,12 @@ const ViewClaimModal = ({ claim, items, merchants, users, getUserName, getMercha
             <h3 style={{ marginBottom: '10px', color: '#333' }}>General Information</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
               <div>
+                <strong>Claim ID:</strong>
+                <div style={{ fontFamily: 'monospace', fontSize: '1.1em', color: '#0066cc' }}>
+                  {claim.claim_id || 'N/A'}
+                </div>
+              </div>
+              <div>
                 <strong>Date:</strong>
                 <div>{formatDate(claim.date)}</div>
               </div>
@@ -581,32 +601,54 @@ const ViewClaimModal = ({ claim, items, merchants, users, getUserName, getMercha
               </div>
               <div>
                 <strong>Status:</strong>
-                <div>
-                  <span className={`status-badge ${claim.verified ? 'status-verified' : 'status-pending'}`}>
-                    {claim.verified ? 'Verified' : 'Pending'}
-                  </span>
-                </div>
+                <div>{getStatusBadge(claim.status)}</div>
               </div>
             </div>
           </div>
+
+          {/* Bilty Number */}
+          {claim.bilty_number && (
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ marginBottom: '10px', color: '#333' }}>Bilty Information</h3>
+              <div style={{ 
+                padding: '15px', 
+                backgroundColor: '#d4edda', 
+                border: '1px solid #c3e6cb', 
+                borderRadius: '4px'
+              }}>
+                <strong>Bilty Number:</strong>
+                <div style={{ fontFamily: 'monospace', fontSize: '1.1em', marginTop: '5px' }}>
+                  {claim.bilty_number}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Verification Details */}
           {claim.verified && (
             <div style={{ marginBottom: '20px' }}>
               <h3 style={{ marginBottom: '10px', color: '#333' }}>Verification Details</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
-                {claim.verified_by && (
-                  <div>
-                    <strong>Verified By:</strong>
-                    <div>{getUserName(claim.verified_by)}</div>
-                  </div>
-                )}
-                {claim.verified_at && (
-                  <div>
-                    <strong>Verified At:</strong>
-                    <div>{formatDate(claim.verified_at)}</div>
-                  </div>
-                )}
+              <div style={{ 
+                padding: '15px', 
+                backgroundColor: '#d4edda', 
+                border: '1px solid #c3e6cb', 
+                borderRadius: '4px',
+                color: '#155724'
+              }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
+                  {claim.verified_by && (
+                    <div>
+                      <strong>Verified By:</strong>
+                      <div>{getUserName(claim.verified_by)}</div>
+                    </div>
+                  )}
+                  {claim.verified_at && (
+                    <div>
+                      <strong>Verified At:</strong>
+                      <div>{formatDate(claim.verified_at)}</div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

@@ -1,6 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from ..models.claim import ClaimCreate, ClaimUpdate, ClaimVerify
+from ..models.claim import ClaimCreate, ClaimUpdate, ClaimVerify, ClaimBiltyUpdate, ClaimApprove
 from ..utils.crud_claim import claim_crud
 from ..utils.dependencies import (
     require_admin_or_rep, 
@@ -104,6 +104,30 @@ async def verify_claim(claim_id: str, verify_data: ClaimVerify):
             detail="Claim not found"
         )
     return verified_claim
+
+
+@router.put("/{claim_id}/bilty", response_model=dict, dependencies=[Depends(require_admin_or_rep)])
+async def update_bilty_number(claim_id: str, bilty_data: ClaimBiltyUpdate):
+    """Update bilty number and change status to Approval Pending (Admin or Rep)"""
+    updated_claim = await claim_crud.update_bilty_number(claim_id, bilty_data.bilty_number)
+    if updated_claim is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Claim not found"
+        )
+    return updated_claim
+
+
+@router.put("/{claim_id}/approve", response_model=dict, dependencies=[Depends(require_admin_or_factory)])
+async def approve_claim(claim_id: str, approve_data: ClaimApprove):
+    """Approve a claim and change status to Approved (Admin or Factory)"""
+    approved_claim = await claim_crud.approve_claim(claim_id, approve_data)
+    if approved_claim is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Claim not found"
+        )
+    return approved_claim
 
 
 @router.delete("/{claim_id}", dependencies=[Depends(require_admin_or_rep)])

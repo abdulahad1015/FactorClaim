@@ -4,28 +4,42 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 module.exports = {
   packagerConfig: {
     asar: true,
+    icon: 'public/favicon',
+    extraResource: [
+      './build',
+      './public/app-update.yml'
+    ],
   },
   rebuildConfig: {},
   makers: [
+    // {
+    //   name: '@electron-forge/maker-zip',
+    //   platforms: ['win32'],
+    // },
     {
       name: '@electron-forge/maker-squirrel',
       config: {
         authors: 'FactorClaim',
-        description: 'FactorClaim Desktop Application'
+        description: 'FactorClaim Desktop Application',
+        name: 'factorclaim-desktop',
+        setupIcon: 'public/favicon.ico',
+        noMsi: true,
+        setupExe: 'FactorClaimSetup.exe'
       },
-    },
+    }
+  ],
+  publishers: [
     {
-      name: '@electron-forge/maker-zip',
-      platforms: ['darwin'],
-    },
-    {
-      name: '@electron-forge/maker-deb',
-      config: {},
-    },
-    {
-      name: '@electron-forge/maker-rpm',
-      config: {},
-    },
+      name: '@electron-forge/publisher-github',
+      config: {
+        repository: {
+          owner: 'abdulahad1015',
+          name: 'FactorClaim'
+        },
+        prerelease: false,
+        draft: true
+      }
+    }
   ],
   plugins: [
     {

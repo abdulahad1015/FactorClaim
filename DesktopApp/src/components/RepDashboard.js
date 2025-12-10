@@ -684,6 +684,10 @@ const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
 };
 
 const ViewClaimModal = ({ claim, items, merchants, onClose }) => {
+  const [biltyNumber, setBiltyNumber] = useState(claim?.bilty_number || '');
+  const [isUpdatingBilty, setIsUpdatingBilty] = useState(false);
+  const [biltyError, setBiltyError] = useState('');
+
   if (!claim) return null;
 
   const getItemName = (itemId) => {
@@ -713,6 +717,41 @@ const ViewClaimModal = ({ claim, items, merchants, onClose }) => {
     }
   };
 
+  const getStatusBadge = (status) => {
+    const statusColors = {
+      'Bilty Pending': 'badge-warning',
+      'Approval Pending': 'badge-info',
+      'Approved': 'badge-success',
+      'Rejected': 'badge-danger'
+    };
+    return (
+      <span className={`badge ${statusColors[status] || 'badge-secondary'}`}>
+        {status || 'Pending'}
+      </span>
+    );
+  };
+
+  const handleUpdateBilty = async () => {
+    if (!biltyNumber.trim()) {
+      setBiltyError('Bilty number is required');
+      return;
+    }
+
+    setIsUpdatingBilty(true);
+    setBiltyError('');
+
+    try {
+      await claimsAPI.updateBilty(claim._id || claim.id, biltyNumber);
+      alert('Bilty number updated successfully! Status changed to Approval Pending.');
+      onClose();
+      window.location.reload(); // Refresh to show updated data
+    } catch (err) {
+      setBiltyError(getErrorMessage(err, 'Failed to update bilty number'));
+    } finally {
+      setIsUpdatingBilty(false);
+    }
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" style={{ maxWidth: '700px', maxHeight: '90vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
@@ -727,6 +766,12 @@ const ViewClaimModal = ({ claim, items, merchants, onClose }) => {
             <h3 style={{ marginBottom: '10px', color: '#333' }}>Claim Information</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
               <div>
+                <strong>Claim ID:</strong>
+                <div style={{ fontFamily: 'monospace', fontSize: '1.1em', color: '#0066cc' }}>
+                  {claim.claim_id || 'N/A'}
+                </div>
+              </div>
+              <div>
                 <strong>Claim Date:</strong>
                 <div>{formatDate(claim.date)}</div>
               </div>
@@ -736,14 +781,69 @@ const ViewClaimModal = ({ claim, items, merchants, onClose }) => {
               </div>
               <div>
                 <strong>Status:</strong>
-                <div>
-                  <span className={`badge ${claim.verified ? 'badge-success' : 'badge-warning'}`}>
-                    {claim.verified ? 'Verified' : 'Pending Verification'}
-                  </span>
-                </div>
+                <div>{getStatusBadge(claim.status)}</div>
               </div>
             </div>
           </div>
+
+          {/* Bilty Number Section */}
+          {claim.status === 'Bilty Pending' && (
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ marginBottom: '10px', color: '#333' }}>Add Bilty Number</h3>
+              <div style={{ 
+                padding: '15px', 
+                backgroundColor: '#fff3cd', 
+                border: '1px solid #ffeaa7', 
+                borderRadius: '4px'
+              }}>
+                <p style={{ marginBottom: '10px', color: '#856404' }}>
+                  Please enter the bilty number to proceed with approval process.
+                </p>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1 }}>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Enter Bilty Number"
+                      value={biltyNumber}
+                      onChange={(e) => setBiltyNumber(e.target.value)}
+                      disabled={isUpdatingBilty}
+                    />
+                    {biltyError && (
+                      <div style={{ color: '#dc3545', fontSize: '0.875em', marginTop: '5px' }}>
+                        {biltyError}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleUpdateBilty}
+                    disabled={isUpdatingBilty || !biltyNumber.trim()}
+                  >
+                    {isUpdatingBilty ? 'Updating...' : 'Update Bilty'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Show Bilty Number if already set */}
+          {claim.bilty_number && (
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ marginBottom: '10px', color: '#333' }}>Bilty Information</h3>
+              <div style={{ 
+                padding: '15px', 
+                backgroundColor: '#d4edda', 
+                border: '1px solid #c3e6cb', 
+                borderRadius: '4px'
+              }}>
+                <strong>Bilty Number:</strong>
+                <div style={{ fontFamily: 'monospace', fontSize: '1.1em', marginTop: '5px' }}>
+                  {claim.bilty_number}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Verification Details */}
           {claim.verified && (

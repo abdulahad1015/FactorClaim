@@ -53,7 +53,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      window.location.hash = '#/login';
     }
     return Promise.reject(error);
   }
@@ -198,6 +198,16 @@ export const claimsAPI = {
   
   verify: async (id, verifyData) => {
     const response = await api.put(`/api/claims/${id}/verify`, verifyData);
+    return response.data;
+  },
+  
+  updateBilty: async (id, biltyNumber) => {
+    const response = await api.put(`/api/claims/${id}/bilty`, { bilty_number: biltyNumber });
+    return response.data;
+  },
+  
+  approve: async (id, approveData) => {
+    const response = await api.put(`/api/claims/${id}/approve`, approveData);
     return response.data;
   },
 };

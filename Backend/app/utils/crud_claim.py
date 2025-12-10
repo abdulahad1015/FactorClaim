@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from bson import ObjectId
 from fastapi import HTTPException, status
 from ..utils.crud_base import CRUDBase
-from ..models.claim import Claim, ClaimCreate, ClaimUpdate, ClaimVerify
+from ..models.claim import Claim, ClaimCreate, ClaimUpdate, ClaimVerify, ClaimStatus, ClaimApprove
 from ..utils.crud_item import item_crud
 
 
@@ -116,6 +116,10 @@ class CRUDClaim(CRUDBase):
         if "verified" not in claim_data:
             claim_data["verified"] = False
         
+        # Set default status to Bilty Pending for new claims
+        if "status" not in claim_data:
+            claim_data["status"] = ClaimStatus.BILTY_PENDING.value
+        
         return await self.create(claim_data)
     
     async def get_claim(self, claim_id: str) -> Optional[Dict[str, Any]]:
@@ -196,6 +200,37 @@ class CRUDClaim(CRUDBase):
         """Get all unverified claims"""
         filter_dict = {"verified": False}
         return await self.get_multi(filter_dict=filter_dict)
+    
+    async def update_bilty_number(
+        self, 
+        claim_id: str, 
+        bilty_number: str
+    ) -> Optional[Dict[str, Any]]:
+        """Update bilty number and change status to Approval Pending"""
+        update_data = {
+            "bilty_number": bilty_number,
+            "status": ClaimStatus.APPROVAL_PENDING.value,
+            "updated_at": datetime.utcnow()
+        }
+        
+        return await self.update(claim_id, update_data)
+    
+    async def approve_claim(
+        self, 
+        claim_id: str, 
+        approve_data: ClaimApprove
+    ) -> Optional[Dict[str, Any]]:
+        """Approve a claim and change status to Approved"""
+        update_data = {
+            "status": ClaimStatus.APPROVED.value,
+            "verified": True,
+            "verified_by": ObjectId(approve_data.verified_by),
+            "verified_at": datetime.utcnow(),
+            "notes": approve_data.notes,
+            "updated_at": datetime.utcnow()
+        }
+        
+        return await self.update(claim_id, update_data)
 
 
 # Create instance

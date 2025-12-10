@@ -8,6 +8,8 @@ on:
 jobs:
   release:
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write  # Required to create releases
     
     strategy:
       matrix:
@@ -31,11 +33,21 @@ jobs:
     
     - name: Build React app
       working-directory: ./DesktopApp
+      env:
+        REACT_APP_API_BASE_URL: https://factor-claim.vercel.app
+        REACT_APP_API_TIMEOUT: 30000
       run: npm run build
     
     - name: Package Electron app
       working-directory: ./DesktopApp
       run: npm run make
+    
+    - name: Create app-update.yml
+      working-directory: ./DesktopApp
+      run: |
+        echo "provider: github" > out/make/squirrel.windows/x64/app-update.yml
+        echo "owner: abdulahad1015" >> out/make/squirrel.windows/x64/app-update.yml
+        echo "repo: FactorClaim" >> out/make/squirrel.windows/x64/app-update.yml
     
     - name: Create Release
       uses: softprops/action-gh-release@v1
@@ -44,6 +56,7 @@ jobs:
           DesktopApp/out/make/squirrel.windows/x64/*.exe
           DesktopApp/out/make/squirrel.windows/x64/*.nupkg
           DesktopApp/out/make/squirrel.windows/x64/RELEASES
+          DesktopApp/out/make/squirrel.windows/x64/app-update.yml
         draft: false
         prerelease: false
         generate_release_notes: true
