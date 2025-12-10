@@ -4,6 +4,7 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 module.exports = {
   packagerConfig: {
     asar: true,
+    icon: 'public/favicon',
     extraResource: [
       './build'
     ],
@@ -19,21 +20,12 @@ module.exports = {
       config: {
         authors: 'FactorClaim',
         description: 'FactorClaim Desktop Application',
-        name: 'FactorClaim',
+        name: 'factorclaim-desktop',
+        setupIcon: 'public/favicon.ico',
         noMsi: true,
-        setupExe: 'FactorClaimSetup.exe',
-        createDesktopShortcut: true,
-        createStartMenuShortcut: true
+        setupExe: 'FactorClaimSetup.exe'
       },
-    },
-    {
-      name: '@electron-forge/maker-deb',
-      config: {},
-    },
-    {
-      name: '@electron-forge/maker-rpm',
-      config: {},
-    },
+    }
   ],
   plugins: [
     {
