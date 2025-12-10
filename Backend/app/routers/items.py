@@ -135,6 +135,16 @@ async def check_item_production_date(
             detail="Item has no production date"
         )
     
+    # Convert string to datetime if needed
+    if isinstance(production_date, str):
+        try:
+            production_date = datetime.fromisoformat(production_date.replace('Z', '+00:00'))
+        except (ValueError, AttributeError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid production date format"
+            )
+    
     # Calculate age in months
     age_days = (datetime.utcnow() - production_date).days
     age_months = int(age_days / 30)
@@ -151,7 +161,7 @@ async def check_item_production_date(
         item_id=str(item.get("_id")),
         model_name=item.get("model_name"),
         batch=item.get("batch"),
-        production_date=production_date.isoformat(),
+        production_date=production_date.isoformat() if hasattr(production_date, 'isoformat') else str(production_date),
         age_months=age_months,
         is_old=is_old,
         requires_confirmation=is_old,

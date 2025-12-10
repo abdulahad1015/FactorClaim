@@ -1,0 +1,51 @@
+name: Release Electron App
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Triggers on version tags like v1.0.0, v2.1.3, etc.
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      matrix:
+        os: [windows-latest]
+        # Add macos-latest and ubuntu-latest for cross-platform releases
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: DesktopApp/package-lock.json
+    
+    - name: Install dependencies
+      working-directory: ./DesktopApp
+      run: npm ci
+    
+    - name: Build React app
+      working-directory: ./DesktopApp
+      run: npm run build
+    
+    - name: Package Electron app
+      working-directory: ./DesktopApp
+      run: npm run make
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          DesktopApp/out/make/squirrel.windows/x64/*.exe
+          DesktopApp/out/make/squirrel.windows/x64/*.nupkg
+          DesktopApp/out/make/squirrel.windows/x64/RELEASES
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

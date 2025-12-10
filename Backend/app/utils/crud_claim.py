@@ -53,13 +53,21 @@ class CRUDClaim(CRUDBase):
                 item = await item_crud.get_item(str(item_id))
                 if item:
                     production_date = item.get("production_date")
-                    if production_date and production_date < fifteen_months_ago:
+                    
+                    # Convert string to datetime if needed
+                    if isinstance(production_date, str):
+                        try:
+                            production_date = datetime.fromisoformat(production_date.replace('Z', '+00:00'))
+                        except (ValueError, AttributeError):
+                            continue  # Skip if date parsing fails
+                    
+                    if production_date and isinstance(production_date, datetime) and production_date < fifteen_months_ago:
                         warnings.append({
                             "item_index": idx,
                             "item_id": str(item_id),
                             "model_name": item.get("model_name"),
                             "batch": item.get("batch"),
-                            "production_date": production_date.isoformat(),
+                            "production_date": production_date.isoformat() if hasattr(production_date, 'isoformat') else str(production_date),
                             "age_months": int((datetime.utcnow() - production_date).days / 30),
                             "message": f"Item '{item.get('model_name')}' (batch: {item.get('batch')}) is older than 15 months"
                         })
