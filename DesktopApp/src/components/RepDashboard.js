@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { merchantsAPI, claimsAPI, itemsAPI, getErrorMessage } from '../services/api';
@@ -17,11 +17,7 @@ const RepDashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadData();
-  }, [activeTab]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -47,7 +43,11 @@ const RepDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab, user]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleLogout = () => {
     logout();
