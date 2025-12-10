@@ -200,6 +200,16 @@ export const claimsAPI = {
     const response = await api.put(`/api/claims/${id}/verify`, verifyData);
     return response.data;
   },
+  
+  updateBilty: async (id, biltyNumber) => {
+    const response = await api.put(`/api/claims/${id}/bilty`, { bilty_number: biltyNumber });
+    return response.data;
+  },
+  
+  approve: async (id, approveData) => {
+    const response = await api.put(`/api/claims/${id}/approve`, approveData);
+    return response.data;
+  },
 };
 
 export default api;

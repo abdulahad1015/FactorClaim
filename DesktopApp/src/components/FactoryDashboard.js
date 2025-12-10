@@ -134,6 +134,20 @@ const FactoryDashboard = () => {
     }
   };
 
+  const getStatusBadge = (status) => {
+    const statusColors = {
+      'Bilty Pending': 'badge-warning',
+      'Approval Pending': 'badge-info',
+      'Approved': 'badge-success',
+      'Rejected': 'badge-danger'
+    };
+    return (
+      <span className={`badge ${statusColors[status] || 'badge-secondary'}`}>
+        {status || 'Pending'}
+      </span>
+    );
+  };
+
   const pendingClaims = claims.filter(c => !c.verified);
   const verifiedClaims = claims.filter(c => c.verified);
 
@@ -194,6 +208,7 @@ const FactoryDashboard = () => {
                     <tr>
                       <th>Date</th>
                       <th>Items</th>
+                      <th>Status</th>
                       <th>Action</th>
                     </tr>
                   </thead>
@@ -202,6 +217,7 @@ const FactoryDashboard = () => {
                       <tr key={claim._id}>
                         <td>{formatDate(claim.date)}</td>
                         <td>{claim.items?.length || 0}</td>
+                        <td>{getStatusBadge(claim.status)}</td>
                         <td>
                           <button
                             className="btn btn-primary"
@@ -236,12 +252,10 @@ const FactoryDashboard = () => {
                   </thead>
                   <tbody>
                     {verifiedClaims.map((claim) => (
-                      <tr key={claim._id}>
+                      <tr key={claim._id} onClick={() => handleViewClaim(claim)} style={{ cursor: 'pointer' }}>
                         <td>{formatDate(claim.date)}</td>
                         <td>{claim.items?.length || 0}</td>
-                        <td>
-                          <span className="badge badge-success">Verified</span>
-                        </td>
+                        <td>{getStatusBadge(claim.status)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -268,94 +282,205 @@ const FactoryDashboard = () => {
 };
 
 const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantName, getItemName, formatDate }) => {
+  const [isApproving, setIsApproving] = useState(false);
+  const [approvalError, setApprovalError] = useState('');
+
+  const getStatusBadge = (status) => {
+    const statusColors = {
+      'Bilty Pending': 'badge-warning',
+      'Approval Pending': 'badge-info',
+      'Approved': 'badge-success',
+      'Rejected': 'badge-danger'
+    };
+    return (
+      <span className={`badge ${statusColors[status] || 'badge-secondary'}`}>
+        {status || 'Pending'}
+      </span>
+    );
+  };
+
+  const handleApprove = async () => {
+    if (!window.confirm('Are you sure you want to approve this claim?')) {
+      return;
+    }
+
+    setIsApproving(true);
+    setApprovalError('');
+
+    try {
+      await claimsAPI.approve(claim._id || claim.id);
+      alert('Claim approved successfully!');
+      onClose();
+      window.location.reload(); // Refresh to show updated data
+    } catch (err) {
+      setApprovalError(getErrorMessage(err, 'Failed to approve claim'));
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px', maxHeight: '90vh', overflow: 'auto' }}>
         <div className="modal-header">
           <h2 className="modal-title">Claim Details</h2>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         
-        <div className="form-group">
-          <label className="form-label">Date</label>
-          <p>{formatDate(claim.date)}</p>
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">Representative</label>
-          <p>{getUserName(claim.rep_id)}</p>
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">Merchant</label>
-          <p>{getMerchantName(claim.merchant_id)}</p>
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">Items</label>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Item Name</th>
-                <th>Quantity</th>
-                <th>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {claim.items?.map((item, index) => (
-                <tr key={index}>
-                  <td>{getItemName(item.item_id)}</td>
-                  <td>{item.quantity}</td>
-                  <td>{item.notes || '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {claim.notes && (
-          <div className="form-group">
-            <label className="form-label">Claim Notes</label>
-            <p>{claim.notes}</p>
+        <div style={{ padding: '20px' }}>
+          {/* Basic Information */}
+          <div style={{ marginBottom: '20px' }}>
+            <h3 style={{ marginBottom: '10px', color: '#333' }}>Claim Information</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+              <div>
+                <strong>Claim ID:</strong>
+                <div style={{ fontFamily: 'monospace', fontSize: '1.1em', color: '#0066cc' }}>
+                  {claim.claim_id || 'N/A'}
+                </div>
+              </div>
+              <div>
+                <strong>Date:</strong>
+                <div>{formatDate(claim.date)}</div>
+              </div>
+              <div>
+                <strong>Representative:</strong>
+                <div>{getUserName(claim.rep_id)}</div>
+              </div>
+              <div>
+                <strong>Merchant:</strong>
+                <div>{getMerchantName(claim.merchant_id)}</div>
+              </div>
+              <div>
+                <strong>Status:</strong>
+                <div>{getStatusBadge(claim.status)}</div>
+              </div>
+            </div>
           </div>
-        )}
 
-        <div className="form-group">
-          <label className="form-label">Status</label>
-          <p>
-            <span className={`badge ${claim.verified ? 'badge-success' : 'badge-warning'}`}>
-              {claim.verified ? 'Verified' : 'Pending'}
-            </span>
-          </p>
-        </div>
-
-        {claim.verified && claim.verified_by && (
-          <div className="form-group">
-            <label className="form-label">Verified By</label>
-            <p>{getUserName(claim.verified_by)}</p>
-          </div>
-        )}
-
-        {claim.verified && claim.verified_at && (
-          <div className="form-group">
-            <label className="form-label">Verified At</label>
-            <p>{formatDate(claim.verified_at)}</p>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
-            Close
-          </button>
-          {!claim.verified && (
-            <button
-              type="button"
-              className="btn btn-success"
-              onClick={() => onVerify(claim._id)}
-            >
-              Verify Claim
-            </button>
+          {/* Bilty Number */}
+          {claim.bilty_number && (
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ marginBottom: '10px', color: '#333' }}>Bilty Information</h3>
+              <div style={{ 
+                padding: '15px', 
+                backgroundColor: '#d4edda', 
+                border: '1px solid #c3e6cb', 
+                borderRadius: '4px'
+              }}>
+                <strong>Bilty Number:</strong>
+                <div style={{ fontFamily: 'monospace', fontSize: '1.1em', marginTop: '5px' }}>
+                  {claim.bilty_number}
+                </div>
+              </div>
+            </div>
           )}
+
+          {/* Approval Section */}
+          {claim.status === 'Approval Pending' && (
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ 
+                padding: '15px', 
+                backgroundColor: '#cce5ff', 
+                border: '1px solid #b8daff', 
+                borderRadius: '4px'
+              }}>
+                <p style={{ marginBottom: '10px', color: '#004085' }}>
+                  <strong>⚠️ This claim is pending your approval</strong>
+                </p>
+                <p style={{ marginBottom: '15px', fontSize: '0.9em', color: '#004085' }}>
+                  The bilty number has been added by the representative. Please review and approve.
+                </p>
+                {approvalError && (
+                  <div style={{ color: '#dc3545', fontSize: '0.875em', marginBottom: '10px', padding: '8px', backgroundColor: '#f8d7da', borderRadius: '4px' }}>
+                    {approvalError}
+                  </div>
+                )}
+                <button
+                  className="btn btn-success"
+                  onClick={handleApprove}
+                  disabled={isApproving}
+                  style={{ width: '100%' }}
+                >
+                  {isApproving ? 'Approving...' : '✓ Approve Claim'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Verification Status (for approved claims) */}
+          {claim.status === 'Approved' && claim.verified && (
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ marginBottom: '10px', color: '#333' }}>Approval Details</h3>
+              <div style={{ 
+                padding: '15px', 
+                backgroundColor: '#d4edda', 
+                border: '1px solid #c3e6cb', 
+                borderRadius: '4px',
+                color: '#155724'
+              }}>
+                <div style={{ marginBottom: '8px' }}>
+                  <strong>✓ This claim has been approved</strong>
+                </div>
+                {claim.verified_by && (
+                  <div>Approved By: {getUserName(claim.verified_by)}</div>
+                )}
+                {claim.verified_at && (
+                  <div>Approval Date: {formatDate(claim.verified_at)}</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Items Details */}
+          <div style={{ marginBottom: '20px' }}>
+            <h3 style={{ marginBottom: '10px', color: '#333' }}>Claimed Items ({claim.items?.length || 0})</h3>
+            {claim.items && claim.items.length > 0 ? (
+              <table className="table" style={{ marginTop: '10px' }}>
+                <thead>
+                  <tr>
+                    <th>Item Name</th>
+                    <th>Quantity</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {claim.items?.map((item, index) => (
+                    <tr key={index}>
+                      <td>{getItemName(item.item_id)}</td>
+                      <td>{item.quantity}</td>
+                      <td>{item.notes || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                No items in this claim
+              </div>
+            )}
+          </div>
+
+          {/* Claim Notes */}
+          {claim.notes && (
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ marginBottom: '10px', color: '#333' }}>Claim Notes</h3>
+              <div style={{ 
+                padding: '15px', 
+                backgroundColor: '#f8f9fa', 
+                border: '1px solid #dee2e6', 
+                borderRadius: '4px'
+              }}>
+                {claim.notes}
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '15px', borderTop: '1px solid #dee2e6' }}>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>

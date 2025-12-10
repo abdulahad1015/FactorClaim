@@ -3,6 +3,15 @@ from typing import Optional, List
 from pydantic import BaseModel, Field
 from bson import ObjectId
 from .item import PyObjectId
+from enum import Enum
+
+
+class ClaimStatus(str, Enum):
+    """Claim status enum"""
+    BILTY_PENDING = "Bilty Pending"
+    APPROVAL_PENDING = "Approval Pending"
+    APPROVED = "Approved"
+    REJECTED = "Rejected"
 
 
 class ClaimItem(BaseModel):
@@ -21,6 +30,8 @@ class Claim(BaseModel):
     merchant_id: PyObjectId
     date: datetime = Field(default_factory=datetime.utcnow)
     items: List[ClaimItem] = Field(..., min_items=1)
+    status: ClaimStatus = Field(default=ClaimStatus.BILTY_PENDING)
+    bilty_number: Optional[str] = Field(default=None, max_length=100)
     verified: bool = Field(default=False)
     verified_by: Optional[PyObjectId] = None
     verified_at: Optional[datetime] = None
@@ -61,11 +72,24 @@ class ClaimCreate(BaseModel):
 class ClaimUpdate(BaseModel):
     """Claim update model"""
     items: Optional[List[ClaimItem]] = Field(None, min_items=1)
+    status: Optional[ClaimStatus] = None
+    bilty_number: Optional[str] = Field(None, max_length=100)
     verified: Optional[bool] = None
     verified_by: Optional[PyObjectId] = None
     verified_at: Optional[datetime] = None
     notes: Optional[str] = Field(None, max_length=500)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ClaimBiltyUpdate(BaseModel):
+    """Model for updating bilty number"""
+    bilty_number: str = Field(..., min_length=1, max_length=100)
+
+
+class ClaimApprove(BaseModel):
+    """Model for approving a claim"""
+    verified_by: PyObjectId
+    notes: Optional[str] = Field(default="", max_length=500)
 
 
 class ClaimVerify(BaseModel):
