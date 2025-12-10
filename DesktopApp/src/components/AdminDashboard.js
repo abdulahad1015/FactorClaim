@@ -839,6 +839,7 @@ const UserModal = ({ user, onSave, onClose }) => {
             >
               <option value="Rep">Representative</option>
               <option value="Factory">Factory User</option>
+              <option value="Warehouse Manager">Warehouse Manager</option>
               <option value="Admin">Admin</option>
             </select>
           </div>

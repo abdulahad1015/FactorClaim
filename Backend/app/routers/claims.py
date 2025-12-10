@@ -52,6 +52,21 @@ async def read_claims_by_rep(
     return await claim_crud.get_claims_by_rep(rep_id)
 
 
+@router.get("/claim-id/{claim_id}", response_model=dict)
+async def read_claim_by_claim_id(
+    claim_id: str,
+    current_user: dict = Depends(get_current_active_user)
+):
+    """Get claim by unique claim_id (e.g., CLM-20241210-0001)"""
+    claim = await claim_crud.get_claim_by_claim_id(claim_id)
+    if claim is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Claim with claim_id '{claim_id}' not found"
+        )
+    return claim
+
+
 @router.get("/{claim_id}", response_model=dict)
 async def read_claim(
     claim_id: str,

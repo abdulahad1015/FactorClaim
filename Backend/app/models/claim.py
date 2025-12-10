@@ -10,11 +10,13 @@ class ClaimItem(BaseModel):
     item_id: PyObjectId
     quantity: int = Field(..., gt=0)
     notes: Optional[str] = Field(default="", max_length=200)
+    force_add: bool = Field(default=False)  # Allow forcing items older than 15 months
 
 
 class Claim(BaseModel):
     """Claim model"""
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    claim_id: Optional[str] = Field(default=None)  # Unique claim identifier (e.g., CLM-20241210-0001)
     rep_id: PyObjectId
     merchant_id: PyObjectId
     date: datetime = Field(default_factory=datetime.utcnow)
@@ -29,15 +31,17 @@ class Claim(BaseModel):
     class Config:
         populate_by_name = True
         json_encoders = {ObjectId: str}
-        schema_extra = {
+        json_schema_extra = {
             "example": {
+                "claim_id": "CLM-20241210-0001",
                 "rep_id": "507f1f77bcf86cd799439011",
                 "merchant_id": "507f1f77bcf86cd799439012",
                 "items": [
                     {
                         "item_id": "507f1f77bcf86cd799439013",
                         "quantity": 10,
-                        "notes": "Standard claim"
+                        "notes": "Standard claim",
+                        "force_add": False
                     }
                 ],
                 "verified": False,

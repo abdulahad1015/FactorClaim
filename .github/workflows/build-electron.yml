@@ -1,0 +1,47 @@
+name: Build Electron App
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      matrix:
+        os: [windows-latest]
+        # Add macos-latest and ubuntu-latest if you want cross-platform builds
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: DesktopApp/package-lock.json
+    
+    - name: Install dependencies
+      working-directory: ./DesktopApp
+      run: npm ci
+    
+    - name: Build React app
+      working-directory: ./DesktopApp
+      run: npm run build
+    
+    - name: Package Electron app
+      working-directory: ./DesktopApp
+      run: npm run make
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: electron-app-${{ matrix.os }}
+        path: |
+          DesktopApp/out/make/**/*
+        retention-days: 7

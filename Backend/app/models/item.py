@@ -50,6 +50,7 @@ class Item(BaseModel):
         arbitrary_types_allowed = True
         populate_by_name = True
         json_encoders = {ObjectId: str}
+        protected_namespaces = ()  # Allow model_name field
         json_schema_extra = {
             "example": {
                 "model_name": "LED-100W-2024",

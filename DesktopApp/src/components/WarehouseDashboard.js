@@ -139,52 +139,55 @@ const WarehouseDashboard = () => {
   };
 
   return (
-    <div className="dashboard-container">
-      <header className="dashboard-header">
-        <div className="header-content">
-          <h1>Warehouse Manager Dashboard</h1>
-          <div className="user-info">
-            <span className="user-name">{user?.name}</span>
-            <button className="btn btn-secondary" onClick={handleLogout}>
-              Logout
-            </button>
-          </div>
+    <div>
+      <nav className="navbar">
+        <div className="navbar-brand">FactorClaim - Warehouse Manager</div>
+        <div className="navbar-user">
+          <span className="navbar-username">{user?.name}</span>
+          <button onClick={handleLogout} className="navbar-logout">
+            Logout
+          </button>
         </div>
-      </header>
+      </nav>
 
-      <div className="dashboard-content">
-        <nav className="dashboard-nav">
-          <button
-            className={`nav-button ${activeTab === 'merchants' ? 'active' : ''}`}
-            onClick={() => setActiveTab('merchants')}
-          >
-            🏪 Merchants
-          </button>
-          <button
-            className={`nav-button ${activeTab === 'claims' ? 'active' : ''}`}
-            onClick={() => setActiveTab('claims')}
-          >
-            📋 Claims
-          </button>
-          <button
-            className={`nav-button ${activeTab === 'statistics' ? 'active' : ''}`}
-            onClick={() => setActiveTab('statistics')}
-          >
-            📊 Statistics
-          </button>
-        </nav>
+      <div className="dashboard">
+        <div className="dashboard-header">
+          <h1 className="dashboard-title">Warehouse Manager Dashboard</h1>
+          <p className="dashboard-subtitle">Manage merchants, view claims, and track statistics</p>
+        </div>
 
         {error && (
           <div className="alert alert-error">
             {error}
-            <button onClick={() => setError('')} className="alert-close">×</button>
+            <button onClick={() => setError('')} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer' }}>×</button>
           </div>
         )}
+
+        <div className="dashboard-tabs">
+          <button
+            className={`tab-button ${activeTab === 'merchants' ? 'active' : ''}`}
+            onClick={() => setActiveTab('merchants')}
+          >
+            Merchants
+          </button>
+          <button
+            className={`tab-button ${activeTab === 'claims' ? 'active' : ''}`}
+            onClick={() => setActiveTab('claims')}
+          >
+            Claims
+          </button>
+          <button
+            className={`tab-button ${activeTab === 'statistics' ? 'active' : ''}`}
+            onClick={() => setActiveTab('statistics')}
+          >
+            Statistics
+          </button>
+        </div>
 
         {loading ? (
           <div className="loading">Loading...</div>
         ) : (
-          <div className="tab-content">
+          <>
             {activeTab === 'merchants' && (
               <MerchantsTab
                 merchants={merchants}
@@ -213,7 +216,7 @@ const WarehouseDashboard = () => {
                 getMerchantName={getMerchantName}
               />
             )}
-          </div>
+          </>
         )}
       </div>
 
@@ -366,46 +369,31 @@ const StatisticsTab = ({ claims, users, merchants, getUserName, getMerchantName 
   });
 
   return (
-    <div className="statistics-container">
+    <div>
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="stat-icon">📋</div>
-          <div className="stat-content">
-            <div className="stat-label">Total Claims</div>
-            <div className="stat-value">{totalClaims}</div>
-          </div>
+          <div className="stat-label">Total Claims</div>
+          <div className="stat-value">{totalClaims}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon">✅</div>
-          <div className="stat-content">
-            <div className="stat-label">Verified Claims</div>
-            <div className="stat-value">{verifiedClaims}</div>
-          </div>
+          <div className="stat-label">Verified Claims</div>
+          <div className="stat-value" style={{ color: '#28a745' }}>{verifiedClaims}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon">⏳</div>
-          <div className="stat-content">
-            <div className="stat-label">Pending Claims</div>
-            <div className="stat-value">{pendingClaims}</div>
-          </div>
+          <div className="stat-label">Pending Claims</div>
+          <div className="stat-value" style={{ color: '#ffc107' }}>{pendingClaims}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon">🏪</div>
-          <div className="stat-content">
-            <div className="stat-label">Total Merchants</div>
-            <div className="stat-value">{totalMerchants}</div>
-          </div>
+          <div className="stat-label">Total Merchants</div>
+          <div className="stat-value">{totalMerchants}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon">✨</div>
-          <div className="stat-content">
-            <div className="stat-label">Active Merchants</div>
-            <div className="stat-value">{activeMerchants}</div>
-          </div>
+          <div className="stat-label">Active Merchants</div>
+          <div className="stat-value" style={{ color: '#28a745' }}>{activeMerchants}</div>
         </div>
       </div>
 
-      <div className="charts-grid">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px', marginTop: '2rem' }}>
         <div className="card">
           <h3>Claims by Representative</h3>
           <table className="table">
@@ -568,78 +556,100 @@ const ViewClaimModal = ({ claim, items, merchants, users, getUserName, getMercha
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
+      <div className="modal-content" style={{ maxWidth: '800px', maxHeight: '90vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title">Claim Details</h2>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
-        <div className="claim-details">
-          <div className="detail-section">
-            <h3>General Information</h3>
-            <div className="detail-grid">
-              <div className="detail-item">
-                <span className="detail-label">Date:</span>
-                <span className="detail-value">{formatDate(claim.date)}</span>
+        
+        <div style={{ padding: '20px' }}>
+          {/* Basic Information */}
+          <div style={{ marginBottom: '20px' }}>
+            <h3 style={{ marginBottom: '10px', color: '#333' }}>General Information</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
+              <div>
+                <strong>Date:</strong>
+                <div>{formatDate(claim.date)}</div>
               </div>
-              <div className="detail-item">
-                <span className="detail-label">Representative:</span>
-                <span className="detail-value">{getUserName(claim.rep_id)}</span>
+              <div>
+                <strong>Representative:</strong>
+                <div>{getUserName(claim.rep_id)}</div>
               </div>
-              <div className="detail-item">
-                <span className="detail-label">Merchant:</span>
-                <span className="detail-value">{getMerchantName(claim.merchant_id)}</span>
+              <div>
+                <strong>Merchant:</strong>
+                <div>{getMerchantName(claim.merchant_id)}</div>
               </div>
-              <div className="detail-item">
-                <span className="detail-label">Status:</span>
-                <span className={`status-badge ${claim.verified ? 'status-verified' : 'status-pending'}`}>
-                  {claim.verified ? 'Verified' : 'Pending'}
-                </span>
-              </div>
-              {claim.verified && claim.verified_by && (
-                <div className="detail-item">
-                  <span className="detail-label">Verified By:</span>
-                  <span className="detail-value">{getUserName(claim.verified_by)}</span>
+              <div>
+                <strong>Status:</strong>
+                <div>
+                  <span className={`status-badge ${claim.verified ? 'status-verified' : 'status-pending'}`}>
+                    {claim.verified ? 'Verified' : 'Pending'}
+                  </span>
                 </div>
-              )}
-              {claim.verified && claim.verified_at && (
-                <div className="detail-item">
-                  <span className="detail-label">Verified At:</span>
-                  <span className="detail-value">{formatDate(claim.verified_at)}</span>
-                </div>
-              )}
+              </div>
             </div>
           </div>
 
-          <div className="detail-section">
-            <h3>Items</h3>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Item</th>
-                  <th>Quantity</th>
-                  <th>Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {claim.items?.map((item, index) => (
-                  <tr key={index}>
-                    <td>{getItemName(item.item_id)}</td>
-                    <td>{item.quantity}</td>
-                    <td>{item.notes || '-'}</td>
+          {/* Verification Details */}
+          {claim.verified && (
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ marginBottom: '10px', color: '#333' }}>Verification Details</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
+                {claim.verified_by && (
+                  <div>
+                    <strong>Verified By:</strong>
+                    <div>{getUserName(claim.verified_by)}</div>
+                  </div>
+                )}
+                {claim.verified_at && (
+                  <div>
+                    <strong>Verified At:</strong>
+                    <div>{formatDate(claim.verified_at)}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Items Details */}
+          <div style={{ marginBottom: '20px' }}>
+            <h3 style={{ marginBottom: '10px', color: '#333' }}>Items ({claim.items?.length || 0})</h3>
+            {claim.items && claim.items.length > 0 ? (
+              <table className="table" style={{ marginTop: '10px' }}>
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Quantity</th>
+                    <th>Notes</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {claim.items.map((item, index) => (
+                    <tr key={index}>
+                      <td>{getItemName(item.item_id)}</td>
+                      <td>{item.quantity}</td>
+                      <td>{item.notes || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="empty-state">
+                <div className="empty-state-text">No items found</div>
+              </div>
+            )}
           </div>
 
+          {/* Notes */}
           {claim.notes && (
-            <div className="detail-section">
-              <h3>Notes</h3>
-              <p>{claim.notes}</p>
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ marginBottom: '10px', color: '#333' }}>Notes</h3>
+              <p style={{ padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>{claim.notes}</p>
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 20px 20px', gap: '10px' }}>
           <button className="btn btn-secondary" onClick={onClose}>Close</button>
         </div>
       </div>
