@@ -16,6 +16,17 @@ let mainWindow;
 autoUpdater.autoDownload = false; // Don't auto-download, let user decide
 autoUpdater.autoInstallOnAppQuit = true;
 
+// Configure for private repository (WARNING: Token will be visible in compiled app)
+if (!isDev) {
+  autoUpdater.setFeedURL({
+    provider: 'github',
+    owner: 'abdulahad1015',
+    repo: 'FactorClaim',
+    private: true,
+    token: 'YOUR_GITHUB_TOKEN_HERE' // Replace with actual token - WARNING: Security risk!
+  });
+}
+
 // Auto-updater event handlers
 autoUpdater.on('checking-for-update', () => {
   console.log('Checking for updates...');

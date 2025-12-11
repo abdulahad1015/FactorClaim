@@ -7,7 +7,7 @@ module.exports = {
     icon: 'public/favicon',
     extraResource: [
       './build',
-      './public/app-update.yml'
+      './public/latest.yml'
     ],
   },
   rebuildConfig: {},
