@@ -170,6 +170,9 @@ ipcMain.handle('download-update', () => {
 
 ipcMain.handle('install-update', () => {
   if (!isDev) {
-    autoUpdater.quitAndInstall();
+    // Force quit and install immediately without waiting
+    setImmediate(() => {
+      autoUpdater.quitAndInstall(false, true);
+    });
   }
 });
