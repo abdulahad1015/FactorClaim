@@ -153,7 +153,7 @@ const RepDashboard = () => {
         {error && (
           <div className="alert alert-error">
             {error}
-            <button onClick={() => setError('')} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer' }}>×</button>
+            <button onClick={() => setError('')} className="alert-dismiss">×</button>
           </div>
         )}
 
@@ -230,7 +230,7 @@ const MerchantsTab = ({ merchants, onAdd, onEdit, onDelete }) => {
     <div className="card">
       <div className="action-bar">
         <h2>Merchants Management</h2>
-        <button className="btn btn-primary" onClick={onAdd}>
+        <button className="btn btn-primary action-bar-btn" onClick={onAdd}>
           + Add Merchant
         </button>
       </div>
@@ -258,8 +258,8 @@ const MerchantsTab = ({ merchants, onAdd, onEdit, onDelete }) => {
                 <td>{merchant.address}</td>
                 <td>{merchant.contact}</td>
                 <td>{merchant.email || '-'}</td>
-                <td>
-                  <button className="btn btn-secondary" style={{ marginRight: '8px' }} onClick={() => onEdit(merchant)}>
+                <td className="table-actions">
+                  <button className="btn btn-secondary" onClick={() => onEdit(merchant)}>
                     Edit
                   </button>
                   <button className="btn btn-danger" onClick={() => onDelete(merchant._id)}>
@@ -286,7 +286,7 @@ const ClaimsTab = ({ claims, merchants, onAdd, onView, formatDate }) => {
     <div className="card">
       <div className="action-bar">
         <h2>My Claims</h2>
-        <button className="btn btn-primary" onClick={onAdd}>
+        <button className="btn btn-primary action-bar-btn" onClick={onAdd}>
           + Create Claim
         </button>
       </div>
@@ -399,7 +399,7 @@ const MerchantModal = ({ merchant, onSave, onClose }) => {
               maxLength={100}
             />
           </div>
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Cancel
             </button>
@@ -643,9 +643,8 @@ const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
                       <td>
                         <button
                           type="button"
-                          className="btn btn-danger"
+                          className="btn btn-danger btn-sm"
                           onClick={() => handleRemoveItem(index)}
-                          style={{ padding: '4px 8px', fontSize: '12px' }}
                         >
                           Remove
                         </button>
@@ -669,7 +668,7 @@ const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Cancel
             </button>
@@ -938,7 +937,7 @@ const ViewClaimModal = ({ claim, items, merchants, onClose }) => {
           </div>
         </div>
 
-        <div style={{ padding: '20px', borderTop: '1px solid #dee2e6', textAlign: 'right' }}>
+        <div className="modal-footer-bordered">
           <button className="btn btn-secondary" onClick={onClose}>
             Close
           </button>

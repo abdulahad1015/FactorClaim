@@ -97,6 +97,25 @@
   margin-bottom: 1.5rem;
 }
 
+/* Specific class for action bar buttons */
+.action-bar-btn {
+  padding: 8px 16px !important;
+  font-size: 14px !important;
+  white-space: nowrap !important;
+  min-width: 100px !important;
+  max-width: 150px !important;
+  text-align: center !important;
+  box-sizing: border-box !important;
+}
+
+.action-bar .btn {
+  padding: 8px 16px !important;
+  font-size: 14px !important;
+  white-space: nowrap;
+  min-width: 100px !important;
+  text-align: center;
+}
+
 .search-box {
   flex: 1;
   max-width: 400px;
@@ -169,4 +188,50 @@
 .empty-state-text {
   font-size: 18px;
   margin-bottom: 24px;
+}
+
+/* Filter section */
+.filter-section {
+  padding: 16px 20px;
+  padding-left: 12px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.filter-section h4 {
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 12px;
+}
+
+.filter-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: #666;
+}
+
+/* Two-column layout */
+.two-column-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+/* Action bar with subtitle */
+.action-bar-group h2 {
+  margin: 0;
+}
+
+.action-bar-group p {
+  color: #7f8c8d;
+  font-size: 0.875rem;
+  margin-top: 2px;
 }

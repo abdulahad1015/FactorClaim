@@ -35,7 +35,7 @@ code {
 }
 
 .btn {
-  padding: 10px 20px;
+  padding: 8px 16px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -44,12 +44,17 @@ code {
   transition: all 0.3s ease;
 }
 
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn-primary {
   background-color: #007bff;
   color: white;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background-color: #0056b3;
 }
 
@@ -58,7 +63,7 @@ code {
   color: white;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
   background-color: #545b62;
 }
 
@@ -67,7 +72,7 @@ code {
   color: white;
 }
 
-.btn-success:hover {
+.btn-success:hover:not(:disabled) {
   background-color: #218838;
 }
 
@@ -76,7 +81,7 @@ code {
   color: white;
 }
 
-.btn-danger:hover {
+.btn-danger:hover:not(:disabled) {
   background-color: #c82333;
 }
 
@@ -85,7 +90,7 @@ code {
   color: #212529;
 }
 
-.btn-warning:hover {
+.btn-warning:hover:not(:disabled) {
   background-color: #e0a800;
 }
 
@@ -230,4 +235,91 @@ code {
 .badge-info {
   background-color: #d1ecf1;
   color: #0c5460;
+}
+
+.badge-secondary {
+  background-color: #e9ecef;
+  color: #495057;
+}
+
+.badge-danger {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+/* Small button variant */
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* Table action cell - consistent button layout */
+.table-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.table-actions .btn {
+  min-width: 70px !important;
+  max-width: 70px !important;
+  width: 70px !important;
+  padding: 6px 4px !important;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+/* Modal footer buttons */
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding-top: 16px;
+}
+
+/* Bordered modal footer (for detail modals) */
+.modal-footer-bordered {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 20px;
+  border-top: 1px solid #dee2e6;
+}
+
+/* Alert dismiss button */
+.alert-dismiss {
+  float: right;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  color: inherit;
+  opacity: 0.7;
+  padding: 0;
+}
+
+.alert-dismiss:hover {
+  opacity: 1;
+}
+
+/* Status badges (Warehouse/Factory) */
+.status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-active,
+.status-verified {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-inactive,
+.status-pending {
+  background-color: #fff3cd;
+  color: #856404;
 }

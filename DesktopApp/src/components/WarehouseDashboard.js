@@ -159,7 +159,7 @@ const WarehouseDashboard = () => {
         {error && (
           <div className="alert alert-error">
             {error}
-            <button onClick={() => setError('')} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer' }}>×</button>
+            <button onClick={() => setError('')} className="alert-dismiss">×</button>
           </div>
         )}
 
@@ -247,7 +247,7 @@ const MerchantsTab = ({ merchants, onAdd, onEdit, onDelete }) => {
     <div className="card">
       <div className="action-bar">
         <h2>Merchants Management</h2>
-        <button className="btn btn-primary" onClick={onAdd}>
+        <button className="btn btn-primary action-bar-btn" onClick={onAdd}>
           + Add Merchant
         </button>
       </div>
@@ -281,8 +281,8 @@ const MerchantsTab = ({ merchants, onAdd, onEdit, onDelete }) => {
                     {merchant.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </td>
-                <td>
-                  <button className="btn btn-secondary" style={{ marginRight: '8px' }} onClick={() => onEdit(merchant)}>
+                <td className="table-actions">
+                  <button className="btn btn-secondary" onClick={() => onEdit(merchant)}>
                     Edit
                   </button>
                   <button className="btn btn-danger" onClick={() => onDelete(merchant._id)}>
@@ -393,7 +393,7 @@ const StatisticsTab = ({ claims, users, merchants, getUserName, getMerchantName 
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px', marginTop: '2rem' }}>
+      <div className="two-column-grid" style={{ marginTop: '2rem' }}>
         <div className="card">
           <h3>Claims by Representative</h3>
           <table className="table">
@@ -524,7 +524,7 @@ const MerchantModal = ({ merchant, onSave, onClose }) => {
               Active
             </label>
           </div>
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Cancel
             </button>
@@ -691,7 +691,7 @@ const ViewClaimModal = ({ claim, items, merchants, users, getUserName, getMercha
           )}
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 20px 20px', gap: '10px' }}>
+        <div className="modal-footer-bordered">
           <button className="btn btn-secondary" onClick={onClose}>Close</button>
         </div>
       </div>

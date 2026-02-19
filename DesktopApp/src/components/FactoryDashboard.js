@@ -172,7 +172,7 @@ const FactoryDashboard = () => {
         {error && (
           <div className="alert alert-error">
             {error}
-            <button onClick={() => setError('')} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer' }}>×</button>
+            <button onClick={() => setError('')} className="alert-dismiss">×</button>
           </div>
         )}
 
@@ -194,7 +194,7 @@ const FactoryDashboard = () => {
         {loading ? (
           <div className="loading">Loading...</div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+          <div className="two-column-grid">
             <div className="card">
               <h2>Pending Claims</h2>
               {pendingClaims.length === 0 ? (
@@ -220,9 +220,8 @@ const FactoryDashboard = () => {
                         <td>{getStatusBadge(claim.status)}</td>
                         <td>
                           <button
-                            className="btn btn-primary"
+                            className="btn btn-primary btn-sm"
                             onClick={() => handleViewClaim(claim)}
-                            style={{ padding: '6px 12px', fontSize: '12px' }}
                           >
                             View
                           </button>
@@ -476,7 +475,7 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
           )}
 
           {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '15px', borderTop: '1px solid #dee2e6' }}>
+          <div className="modal-footer-bordered">
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Close
             </button>

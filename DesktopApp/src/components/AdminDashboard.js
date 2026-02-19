@@ -215,7 +215,7 @@ const AdminDashboard = () => {
         {error && (
           <div className="alert alert-error">
             {error}
-            <button onClick={() => setError('')} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer' }}>×</button>
+            <button onClick={() => setError('')} className="alert-dismiss">×</button>
           </div>
         )}
 
@@ -360,16 +360,16 @@ const ItemsTab = ({ items, onAdd, onEdit, onDelete }) => {
     <div className="card">
       <div className="action-bar">
         <h2>Items Management</h2>
-        <button className="btn btn-primary" onClick={onAdd}>
+        <button className="btn btn-primary action-bar-btn" onClick={onAdd}>
           + Add Item
         </button>
       </div>
 
       {/* Filters Section */}
-      <div style={{ padding: '20px', backgroundColor: '#f8f9fa', margin: '20px', borderRadius: '4px' }}>
-        <h4 style={{ marginBottom: '15px', color: '#333' }}>Filters</h4>
+      <div className="filter-section">
+        <h4>Filters</h4>
         
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+        <div className="filter-grid">
           <div>
             <label className="form-label">Search</label>
             <input
@@ -432,15 +432,14 @@ const ItemsTab = ({ items, onAdd, onEdit, onDelete }) => {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <span style={{ color: '#666' }}>
+        <div className="filter-bar">
+          <span>
             Showing {filteredItems.length} of {items.length} items
           </span>
           {hasActiveFilters && (
             <button 
-              className="btn btn-secondary" 
+              className="btn btn-secondary btn-sm" 
               onClick={clearFilters}
-              style={{ fontSize: '12px', padding: '4px 8px' }}
             >
               Clear Filters
             </button>
@@ -480,8 +479,8 @@ const ItemsTab = ({ items, onAdd, onEdit, onDelete }) => {
                 <td>{item.batch}</td>
                 <td>{item.wattage}W</td>
                 <td>{item.supplier}</td>
-                <td>
-                  <button className="btn btn-secondary" style={{ marginRight: '8px' }} onClick={() => onEdit(item)}>
+                <td className="table-actions">
+                  <button className="btn btn-secondary" onClick={() => onEdit(item)}>
                     Edit
                   </button>
                   <button className="btn btn-danger" onClick={() => onDelete(item._id)}>
@@ -502,7 +501,7 @@ const UsersTab = ({ users, onAdd, onEdit, onDelete }) => {
     <div className="card">
       <div className="action-bar">
         <h2>Users Management</h2>
-        <button className="btn btn-primary" onClick={onAdd}>
+        <button className="btn btn-primary action-bar-btn" onClick={onAdd}>
           + Add User
         </button>
       </div>
@@ -528,7 +527,7 @@ const UsersTab = ({ users, onAdd, onEdit, onDelete }) => {
                 <td>{user.name}</td>
                 <td><span className="badge">{user.type}</span></td>
                 <td>{user.contact_no}</td>
-                <td style={{ display: 'flex', gap: '6px' }}>
+                <td className="table-actions">
                   <button className="btn btn-secondary" onClick={() => onEdit(user)}>Edit</button>
                   <button className="btn btn-danger" onClick={() => onDelete(user._id)}>Delete</button>
                 </td>
@@ -691,12 +690,12 @@ const ItemModal = ({ item, items, onSave, onClose }) => {
                 />
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className="btn btn-secondary btn-sm"
                   onClick={() => {
                     setIsCustomModelName(false);
                     setFormData({ ...formData, model_name: '' });
                   }}
-                  style={{ marginTop: '8px', fontSize: '12px', padding: '4px 8px' }}
+                  style={{ marginTop: '8px' }}
                 >
                   ← Back to Selection
                 </button>
@@ -780,7 +779,7 @@ const ItemModal = ({ item, items, onSave, onClose }) => {
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
             />
           </div>
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Cancel
             </button>
@@ -903,7 +902,7 @@ const UserModal = ({ user, onSave, onClose }) => {
               <label htmlFor="activeToggle" className="form-label" style={{ margin: 0 }}>Active</label>
             </div>
           )}
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Cancel
             </button>
@@ -921,8 +920,10 @@ const ClaimsTab = ({ claims, onView, formatDate, getUserName, getMerchantName })
   return (
     <div className="card">
       <div className="action-bar">
-        <h2>Claims Management</h2>
-        <p>View all verified and pending claims</p>
+        <div className="action-bar-group">
+          <h2>Claims Management</h2>
+          <p>View all verified and pending claims</p>
+        </div>
       </div>
       {claims.length === 0 ? (
         <div className="empty-state">
@@ -1157,7 +1158,7 @@ const ClaimModal = ({ claim, items, users, merchants, onClose }) => {
           </div>
         </div>
 
-        <div style={{ padding: '20px', borderTop: '1px solid #dee2e6', textAlign: 'right' }}>
+        <div className="modal-footer-bordered">
           <button className="btn btn-secondary" onClick={onClose}>
             Close
           </button>
