@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { merchantsAPI, claimsAPI, usersAPI, itemsAPI, getErrorMessage } from '../services/api';
+import pakistanLocations from '../data/pakistanLocations';
 
 const WarehouseDashboard = () => {
   const [activeTab, setActiveTab] = useState('merchants');
@@ -452,10 +453,19 @@ const MerchantModal = ({ merchant, onSave, onClose }) => {
   const [formData, setFormData] = useState({
     name: merchant?.name || '',
     address: merchant?.address || '',
+    province: merchant?.province || '',
+    city: merchant?.city || '',
     contact: merchant?.contact || '',
     email: merchant?.email || '',
     is_active: merchant?.is_active !== undefined ? merchant.is_active : true,
   });
+
+  const provinces = Object.keys(pakistanLocations);
+  const cities = formData.province ? pakistanLocations[formData.province] || [] : [];
+
+  const handleProvinceChange = (province) => {
+    setFormData({ ...formData, province, city: '' });
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -480,6 +490,35 @@ const MerchantModal = ({ merchant, onSave, onClose }) => {
               required
               maxLength={100}
             />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Province *</label>
+            <select
+              className="form-control"
+              value={formData.province}
+              onChange={(e) => handleProvinceChange(e.target.value)}
+              required
+            >
+              <option value="">Select Province</option>
+              {provinces.map((prov) => (
+                <option key={prov} value={prov}>{prov}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">City *</label>
+            <select
+              className="form-control"
+              value={formData.city}
+              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              required
+              disabled={!formData.province}
+            >
+              <option value="">Select City</option>
+              {cities.map((city) => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
           </div>
           <div className="form-group">
             <label className="form-label">Address *</label>

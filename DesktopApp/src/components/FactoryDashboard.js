@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { claimsAPI, usersAPI, merchantsAPI, itemsAPI, getErrorMessage } from '../services/api';
@@ -112,7 +112,7 @@ const FactoryDashboard = () => {
   const getItemName = (itemId) => {
     if (!itemId) return 'Unknown';
     const foundItem = items.find(i => i._id === itemId || i.id === itemId);
-    return foundItem ? `${foundItem.model_name} - ${foundItem.item_type}` : `Item ${itemId.slice(-6)}`;
+    return foundItem ? `${foundItem.model_name}-${foundItem.wattage}W-${foundItem.batch}` : `Item ${itemId.slice(-6)}`;
   };
 
   const formatDate = (dateString) => {
@@ -134,13 +134,17 @@ const FactoryDashboard = () => {
     }
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (claim) => {
+    if (claim.verified) {
+      return <span className="badge badge-success">Verified</span>;
+    }
     const statusColors = {
       'Bilty Pending': 'badge-warning',
       'Approval Pending': 'badge-info',
       'Approved': 'badge-success',
       'Rejected': 'badge-danger'
     };
+    const status = claim.status;
     return (
       <span className={`badge ${statusColors[status] || 'badge-secondary'}`}>
         {status || 'Pending'}
@@ -148,7 +152,7 @@ const FactoryDashboard = () => {
     );
   };
 
-  const pendingClaims = claims.filter(c => !c.verified);
+  const pendingClaims = claims.filter(c => !c.verified && c.status !== 'Bilty Pending');
   const verifiedClaims = claims.filter(c => c.verified);
 
   return (
@@ -206,6 +210,7 @@ const FactoryDashboard = () => {
                 <table className="table">
                   <thead>
                     <tr>
+                      <th>Claim ID</th>
                       <th>Date</th>
                       <th>Items</th>
                       <th>Status</th>
@@ -215,15 +220,16 @@ const FactoryDashboard = () => {
                   <tbody>
                     {pendingClaims.map((claim) => (
                       <tr key={claim._id}>
+                        <td style={{ fontFamily: 'monospace', fontSize: '0.9em', color: '#0066cc' }}>{claim.claim_id || 'N/A'}</td>
                         <td>{formatDate(claim.date)}</td>
                         <td>{claim.items?.length || 0}</td>
-                        <td>{getStatusBadge(claim.status)}</td>
+                        <td>{getStatusBadge(claim)}</td>
                         <td>
                           <button
                             className="btn btn-primary btn-sm"
                             onClick={() => handleViewClaim(claim)}
                           >
-                            View
+                            Verify
                           </button>
                         </td>
                       </tr>
@@ -244,17 +250,28 @@ const FactoryDashboard = () => {
                 <table className="table">
                   <thead>
                     <tr>
+                      <th>Claim ID</th>
                       <th>Date</th>
                       <th>Items</th>
                       <th>Status</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {verifiedClaims.map((claim) => (
-                      <tr key={claim._id} onClick={() => handleViewClaim(claim)} style={{ cursor: 'pointer' }}>
+                      <tr key={claim._id}>
+                        <td style={{ fontFamily: 'monospace', fontSize: '0.9em', color: '#0066cc' }}>{claim.claim_id || 'N/A'}</td>
                         <td>{formatDate(claim.date)}</td>
                         <td>{claim.items?.length || 0}</td>
-                        <td>{getStatusBadge(claim.status)}</td>
+                        <td>{getStatusBadge(claim)}</td>
+                        <td>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => handleViewClaim(claim)}
+                          >
+                            View
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -284,13 +301,26 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
   const [isApproving, setIsApproving] = useState(false);
   const [approvalError, setApprovalError] = useState('');
 
-  const getStatusBadge = (status) => {
+  // Scanning verification state - start directly in scan mode for pending claims
+  const isPending = !claim.verified && claim.status !== 'Approved';
+  const [scanMode, setScanMode] = useState(isPending);
+  const [batchCode, setBatchCode] = useState('');
+  const [scanError, setScanError] = useState('');
+  const [scanSuccess, setScanSuccess] = useState('');
+  const [scannedCounts, setScannedCounts] = useState({});
+  // scannedCounts = { item_id: scannedQuantity }
+
+  const getStatusBadgeLocal = (claimObj) => {
+    if (claimObj.verified) {
+      return <span className="badge badge-success">Verified</span>;
+    }
     const statusColors = {
       'Bilty Pending': 'badge-warning',
       'Approval Pending': 'badge-info',
       'Approved': 'badge-success',
       'Rejected': 'badge-danger'
     };
+    const status = claimObj.status;
     return (
       <span className={`badge ${statusColors[status] || 'badge-secondary'}`}>
         {status || 'Pending'}
@@ -310,7 +340,7 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
       await claimsAPI.approve(claim._id || claim.id);
       alert('Claim approved successfully!');
       onClose();
-      window.location.reload(); // Refresh to show updated data
+      window.location.reload();
     } catch (err) {
       setApprovalError(getErrorMessage(err, 'Failed to approve claim'));
     } finally {
@@ -318,9 +348,81 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
     }
   };
 
+  // Calculate total required and total scanned
+  const totalRequired = (claim.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0);
+  const totalScanned = Object.values(scannedCounts).reduce((sum, count) => sum + count, 0);
+  const allItemsScanned = claim.items && claim.items.length > 0 && claim.items.every(
+    item => (scannedCounts[item.item_id] || 0) >= (item.quantity || 0)
+  );
+
+  const verifyButtonRef = useRef(null);
+
+  useEffect(() => {
+    if (allItemsScanned && verifyButtonRef.current) {
+      verifyButtonRef.current.focus();
+    }
+  }, [allItemsScanned]);
+
+  const handleScan = async (e) => {
+    if (e.key === 'Enter' && batchCode.trim()) {
+      e.preventDefault();
+      setScanError('');
+      setScanSuccess('');
+      try {
+        const item = await itemsAPI.getByBatch(batchCode.trim());
+        if (item) {
+          // Check if this item is part of the claim
+          const claimItem = (claim.items || []).find(ci => ci.item_id === item._id);
+          if (!claimItem) {
+            setScanError(`Item "${item.model_name} (${item.batch})" is not part of this claim.`);
+            setBatchCode('');
+            return;
+          }
+
+          const currentScanned = scannedCounts[item._id] || 0;
+          const requiredQty = claimItem.quantity || 0;
+
+          if (currentScanned >= requiredQty) {
+            setScanError(`"${item.model_name}" already fully scanned (${requiredQty}/${requiredQty}).`);
+            setBatchCode('');
+            return;
+          }
+
+          // Increment scanned count
+          const newCount = currentScanned + 1;
+          setScannedCounts(prev => ({
+            ...prev,
+            [item._id]: newCount
+          }));
+
+          const remaining = requiredQty - newCount;
+          if (remaining > 0) {
+            setScanSuccess(`✓ Scanned "${item.model_name}" (${newCount}/${requiredQty}) — ${remaining} remaining`);
+          } else {
+            setScanSuccess(`✓ "${item.model_name}" fully scanned! (${newCount}/${requiredQty})`);
+          }
+          setBatchCode('');
+        }
+      } catch (err) {
+        setScanError(getErrorMessage(err, 'Item not found. Please check the batch code.'));
+        setBatchCode('');
+      }
+    }
+  };
+
+  const handleVerifyAfterScan = () => {
+    onVerify(claim._id || claim.id, '');
+  };
+
+  const handleResetScans = () => {
+    setScannedCounts({});
+    setScanError('');
+    setScanSuccess('');
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px', maxHeight: '90vh', overflow: 'auto' }}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '750px', maxHeight: '90vh', overflow: 'auto' }}>
         <div className="modal-header">
           <h2 className="modal-title">Claim Details</h2>
           <button className="modal-close" onClick={onClose}>×</button>
@@ -351,7 +453,7 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
               </div>
               <div>
                 <strong>Status:</strong>
-                <div>{getStatusBadge(claim.status)}</div>
+                <div>{getStatusBadgeLocal(claim)}</div>
               </div>
             </div>
           </div>
@@ -430,34 +532,181 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
             </div>
           )}
 
-          {/* Items Details */}
-          <div style={{ marginBottom: '20px' }}>
-            <h3 style={{ marginBottom: '10px', color: '#333' }}>Claimed Items ({claim.items?.length || 0})</h3>
-            {claim.items && claim.items.length > 0 ? (
+          {/* Scanning Verification Section - starts directly for pending claims */}
+          {isPending && scanMode && (
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ marginBottom: '10px', color: '#333' }}>🔍 Scan Items to Verify</h3>
+              
+              {/* Overall progress bar */}
+              <div style={{ marginBottom: '15px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                  <span style={{ fontWeight: '600', fontSize: '14px' }}>Overall Progress</span>
+                  <span style={{ fontWeight: '600', fontSize: '14px', color: allItemsScanned ? '#28a745' : '#856404' }}>
+                    {totalScanned} / {totalRequired} items scanned
+                  </span>
+                </div>
+                <div style={{ 
+                  width: '100%', 
+                  height: '12px', 
+                  backgroundColor: '#e9ecef', 
+                  borderRadius: '6px', 
+                  overflow: 'hidden' 
+                }}>
+                  <div style={{ 
+                    width: totalRequired > 0 ? `${(totalScanned / totalRequired) * 100}%` : '0%',
+                    height: '100%', 
+                    backgroundColor: allItemsScanned ? '#28a745' : '#007bff',
+                    borderRadius: '6px',
+                    transition: 'width 0.3s ease'
+                  }} />
+                </div>
+              </div>
+
+              {/* Scanner input */}
+              <div style={{ marginBottom: '15px', padding: '12px', background: '#f8f9fa', borderRadius: '4px', border: '1px solid #dee2e6' }}>
+                <label className="form-label" style={{ fontSize: '14px', marginBottom: '5px', display: 'block' }}>
+                  🔍 Scan Barcode (Batch Code)
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={batchCode}
+                  onChange={(e) => setBatchCode(e.target.value)}
+                  onKeyPress={handleScan}
+                  placeholder="Scan barcode or enter batch code, then press Enter"
+                  autoFocus
+                  style={{ marginBottom: '5px' }}
+                />
+                {scanError && (
+                  <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '8px', padding: '8px', backgroundColor: '#f8d7da', borderRadius: '4px' }}>
+                    ✗ {scanError}
+                  </div>
+                )}
+                {scanSuccess && (
+                  <div style={{ color: '#155724', fontSize: '12px', marginTop: '8px', padding: '8px', backgroundColor: '#d4edda', borderRadius: '4px' }}>
+                    {scanSuccess}
+                  </div>
+                )}
+                <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '8px' }}>
+                  Tip: Scan each item barcode one by one. The count updates automatically.
+                </div>
+              </div>
+
+              {/* Per-item scan progress table */}
               <table className="table" style={{ marginTop: '10px' }}>
                 <thead>
                   <tr>
                     <th>Item Name</th>
-                    <th>Quantity</th>
-                    <th>Notes</th>
+                    <th>Required</th>
+                    <th>Scanned</th>
+                    <th>Remaining</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {claim.items?.map((item, index) => (
-                    <tr key={index}>
-                      <td>{getItemName(item.item_id)}</td>
-                      <td>{item.quantity}</td>
-                      <td>{item.notes || '-'}</td>
-                    </tr>
-                  ))}
+                  {(claim.items || []).map((item, index) => {
+                    const scanned = scannedCounts[item.item_id] || 0;
+                    const required = item.quantity || 0;
+                    const remaining = Math.max(0, required - scanned);
+                    const isComplete = scanned >= required;
+                    return (
+                      <tr key={index} style={{ backgroundColor: isComplete ? '#d4edda' : 'transparent' }}>
+                        <td>{getItemName(item.item_id)}</td>
+                        <td style={{ fontWeight: '600' }}>{required}</td>
+                        <td style={{ fontWeight: '600', color: isComplete ? '#28a745' : '#0066cc' }}>{scanned}</td>
+                        <td style={{ fontWeight: '600', color: remaining > 0 ? '#dc3545' : '#28a745' }}>{remaining}</td>
+                        <td>
+                          {isComplete ? (
+                            <span className="badge badge-success">✓ Complete</span>
+                          ) : (
+                            <span className="badge badge-warning">Pending ({remaining} left)</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
-            ) : (
-              <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
-                No items in this claim
+
+              {/* Reset button */}
+              <div style={{ marginTop: '10px', textAlign: 'right' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleResetScans}
+                >
+                  Reset Scans
+                </button>
               </div>
-            )}
-          </div>
+
+              {/* Verify button - only enabled when all items scanned */}
+              <div style={{ marginTop: '15px' }}>
+                {allItemsScanned ? (
+                  <div style={{ 
+                    padding: '15px', 
+                    backgroundColor: '#d4edda', 
+                    border: '1px solid #c3e6cb', 
+                    borderRadius: '4px',
+                    textAlign: 'center'
+                  }}>
+                    <p style={{ marginBottom: '10px', color: '#155724', fontWeight: '600' }}>
+                      ✓ All items have been scanned and verified!
+                    </p>
+                    <button
+                      ref={verifyButtonRef}
+                      className="btn btn-success"
+                      onClick={handleVerifyAfterScan}
+                      style={{ width: '100%', padding: '10px', fontSize: '16px' }}
+                    >
+                      ✓ Verify Claim
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ 
+                    padding: '15px', 
+                    backgroundColor: '#f8f9fa', 
+                    border: '1px solid #dee2e6', 
+                    borderRadius: '4px',
+                    textAlign: 'center',
+                    color: '#6c757d'
+                  }}>
+                    Scan all items to enable verification ({totalRequired - totalScanned} items remaining)
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Items Details (always shown as reference) */}
+          {!scanMode && (
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ marginBottom: '10px', color: '#333' }}>Claimed Items ({claim.items?.length || 0})</h3>
+              {claim.items && claim.items.length > 0 ? (
+                <table className="table" style={{ marginTop: '10px' }}>
+                  <thead>
+                    <tr>
+                      <th>Item Name</th>
+                      <th>Quantity</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {claim.items?.map((item, index) => (
+                      <tr key={index}>
+                        <td>{getItemName(item.item_id)}</td>
+                        <td>{item.quantity}</td>
+                        <td>{item.notes || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                  No items in this claim
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Claim Notes */}
           {claim.notes && (
@@ -476,6 +725,11 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
 
           {/* Action Buttons */}
           <div className="modal-footer-bordered">
+            {scanMode && (
+              <button type="button" className="btn btn-secondary" onClick={() => { setScanMode(false); handleResetScans(); }}>
+                Cancel Scanning
+              </button>
+            )}
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Close
             </button>

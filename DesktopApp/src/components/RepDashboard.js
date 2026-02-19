@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { merchantsAPI, claimsAPI, itemsAPI, getErrorMessage } from '../services/api';
+import pakistanLocations from '../data/pakistanLocations';
 
 const RepDashboard = () => {
   const [activeTab, setActiveTab] = useState('merchants');
@@ -336,9 +337,18 @@ const MerchantModal = ({ merchant, onSave, onClose }) => {
   const [formData, setFormData] = useState({
     name: merchant?.name || '',
     address: merchant?.address || '',
+    province: merchant?.province || '',
+    city: merchant?.city || '',
     contact: merchant?.contact || '',
     email: merchant?.email || '',
   });
+
+  const provinces = Object.keys(pakistanLocations);
+  const cities = formData.province ? pakistanLocations[formData.province] || [] : [];
+
+  const handleProvinceChange = (province) => {
+    setFormData({ ...formData, province, city: '' });
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -364,6 +374,35 @@ const MerchantModal = ({ merchant, onSave, onClose }) => {
               minLength={1}
               maxLength={100}
             />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Province *</label>
+            <select
+              className="form-control"
+              value={formData.province}
+              onChange={(e) => handleProvinceChange(e.target.value)}
+              required
+            >
+              <option value="">Select Province</option>
+              {provinces.map((prov) => (
+                <option key={prov} value={prov}>{prov}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">City *</label>
+            <select
+              className="form-control"
+              value={formData.city}
+              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              required
+              disabled={!formData.province}
+            >
+              <option value="">Select City</option>
+              {cities.map((city) => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
           </div>
           <div className="form-group">
             <label className="form-label">Address *</label>
@@ -420,11 +459,21 @@ const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
     notes: '',
   });
 
+  const [filterProvince, setFilterProvince] = useState('');
+  const [filterCity, setFilterCity] = useState('');
   const [selectedItem, setSelectedItem] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [itemNotes, setItemNotes] = useState('');
   const [batchCode, setBatchCode] = useState('');
   const [scanError, setScanError] = useState('');
+
+  const provinces = Object.keys(pakistanLocations);
+  const cities = filterProvince ? pakistanLocations[filterProvince] || [] : [];
+  const filteredMerchants = merchants.filter(m => {
+    if (filterProvince && m.province !== filterProvince) return false;
+    if (filterCity && m.city !== filterCity) return false;
+    return true;
+  });
 
   const handleBatchScan = async (e) => {
     if (e.key === 'Enter' && batchCode.trim()) {
@@ -538,6 +587,42 @@ const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         <form onSubmit={handleSubmit}>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '0' }}>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label className="form-label">Province</label>
+              <select
+                className="form-control"
+                value={filterProvince}
+                onChange={(e) => {
+                  setFilterProvince(e.target.value);
+                  setFilterCity('');
+                  setFormData({ ...formData, merchant_id: '' });
+                }}
+              >
+                <option value="">All Provinces</option>
+                {provinces.map((prov) => (
+                  <option key={prov} value={prov}>{prov}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label className="form-label">City</label>
+              <select
+                className="form-control"
+                value={filterCity}
+                onChange={(e) => {
+                  setFilterCity(e.target.value);
+                  setFormData({ ...formData, merchant_id: '' });
+                }}
+                disabled={!filterProvince}
+              >
+                <option value="">All Cities</option>
+                {cities.map((city) => (
+                  <option key={city} value={city}>{city}</option>
+                ))}
+              </select>
+            </div>
+          </div>
           <div className="form-group">
             <label className="form-label">Merchant *</label>
             <select
@@ -546,10 +631,10 @@ const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
               onChange={(e) => setFormData({ ...formData, merchant_id: e.target.value })}
               required
             >
-              <option value="">Select Merchant</option>
-              {merchants.map((merchant) => (
+              <option value="">Select Merchant{filterProvince ? ` (${filteredMerchants.length} found)` : ''}</option>
+              {filteredMerchants.map((merchant) => (
                 <option key={merchant._id} value={merchant._id}>
-                  {merchant.name || merchant.address}
+                  {merchant.name}{merchant.city ? ` — ${merchant.city}` : ''}
                 </option>
               ))}
             </select>

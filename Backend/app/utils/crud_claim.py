@@ -14,27 +14,28 @@ class CRUDClaim(CRUDBase):
         super().__init__("claims")
     
     async def _generate_claim_id(self) -> str:
-        """Generate unique claim ID in format CLM-YYYYMMDD-XXXX"""
-        today = datetime.utcnow().strftime("%Y%m%d")
-        prefix = f"CLM-{today}-"
-        
-        # Find the latest claim ID for today
+        """Generate unique claim ID as a sequential serial number (e.g., 0001, 0002, ...)"""
+        # Find the latest claim ID by sorting numerically
         latest_claim = await self.collection.find_one(
-            {"claim_id": {"$regex": f"^{prefix}"}},
+            {"claim_id": {"$exists": True, "$ne": None}},
             sort=[("claim_id", -1)]
         )
         
         if latest_claim and "claim_id" in latest_claim:
-            # Extract the sequence number and increment
             try:
-                last_num = int(latest_claim["claim_id"].split("-")[-1])
+                # Handle old format (CLM-DATE-XXXX) and new format (XXXX)
+                claim_id_str = latest_claim["claim_id"]
+                if "-" in claim_id_str:
+                    last_num = int(claim_id_str.split("-")[-1])
+                else:
+                    last_num = int(claim_id_str)
                 next_num = last_num + 1
             except (ValueError, IndexError):
                 next_num = 1
         else:
             next_num = 1
         
-        return f"{prefix}{next_num:04d}"
+        return f"{next_num:04d}"
     
     async def _validate_item_production_dates(self, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
@@ -197,8 +198,8 @@ class CRUDClaim(CRUDBase):
         return await self.get_multi(filter_dict=filter_dict)
     
     async def get_unverified_claims(self) -> List[Dict[str, Any]]:
-        """Get all unverified claims"""
-        filter_dict = {"verified": False}
+        """Get all unverified claims excluding Bilty Pending (factory only sees claims with bilty added)"""
+        filter_dict = {"verified": False, "status": {"$ne": ClaimStatus.BILTY_PENDING.value}}
         return await self.get_multi(filter_dict=filter_dict)
     
     async def update_bilty_number(

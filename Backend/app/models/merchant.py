@@ -10,6 +10,8 @@ class Merchant(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     name: str = Field(..., min_length=1, max_length=100)
     address: str = Field(..., min_length=1, max_length=200)
+    province: str = Field(..., min_length=1, max_length=100)
+    city: str = Field(..., min_length=1, max_length=100)
     contact: str = Field(..., min_length=10, max_length=15)
     email: Optional[str] = Field(None, max_length=100)
     is_active: bool = Field(default=True)
@@ -34,6 +36,8 @@ class MerchantCreate(BaseModel):
     """Merchant creation model"""
     name: str = Field(..., min_length=1, max_length=100)
     address: str = Field(..., min_length=1, max_length=200)
+    province: str = Field(..., min_length=1, max_length=100)
+    city: str = Field(..., min_length=1, max_length=100)
     contact: str = Field(..., min_length=10, max_length=15)
     email: Optional[str] = Field(None, max_length=100)
 
@@ -42,6 +46,8 @@ class MerchantUpdate(BaseModel):
     """Merchant update model"""
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     address: Optional[str] = Field(None, min_length=1, max_length=200)
+    province: Optional[str] = Field(None, min_length=1, max_length=100)
+    city: Optional[str] = Field(None, min_length=1, max_length=100)
     contact: Optional[str] = Field(None, min_length=10, max_length=15)
     email: Optional[str] = Field(None, max_length=100)
     is_active: Optional[bool] = None
