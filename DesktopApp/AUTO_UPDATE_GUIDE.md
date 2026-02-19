@@ -212,37 +212,140 @@ Auto-updates only work in production builds, not development mode.
 
 ## CI/CD Integration
 
-For automated releases, consider using GitHub Actions:
+Releases are automated via GitHub Actions. The workflow is triggered when you push a version tag.
+
+### How It Works
+
+```
+┌─────────────────────── BUILD TIME (CI) ───────────────────────┐
+│                                                                │
+│  1. npm run build          → React app → build/                │
+│  2. npm run make           → Electron Forge packages app       │
+│     - app-update.yml  ──→  copied to resources/app-update.yml  │
+│     - build/          ──→  copied to resources/build/          │
+│  3. Generate latest.yml    → SHA512 hash + version metadata    │
+│  4. Upload to GitHub Release:                                  │
+│     FactorClaimSetup.exe, .nupkg, RELEASES, latest.yml         │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────── RUNTIME (User's PC) ───────────────────┐
+│                                                                │
+│  App starts → createWindow() → initAutoUpdater()               │
+│                                      │                         │
+│         ┌── isDev? ──→ Yes ──→ skip (no crash)                 │
+│         │                                                      │
+│         └── No ──→ require('electron-updater')                 │
+│                    read resources/app-update.yml                │
+│                    → provider: github, owner, repo              │
+│                                                                │
+│  After 5s:  autoUpdater.checkForUpdates()                      │
+│               │                                                │
+│               ├─ Fetches GitHub API → latest release            │
+│               ├─ Downloads latest.yml from release assets       │
+│               ├─ Compares versions                              │
+│               └─ Emits 'update-available' or 'not-available'   │
+│                                                                │
+│  User clicks "Download" → IPC → autoUpdater.downloadUpdate()   │
+│  User clicks "Install"  → IPC → autoUpdater.quitAndInstall()   │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### Key Files for Auto-Update
+
+| File | Purpose |
+|---|---|
+| `app-update.yml` | Provider config (`github`, owner, repo) bundled into `resources/` at build time via `forge.config.js` `extraResource` |
+| `dev-app-update.yml` | Same config for local dev testing if needed |
+| `public/electron.js` | Main process — `initAutoUpdater()` defers the `electron-updater` import into a try-catch so a missing config never crashes the app |
+| `public/preload.js` | IPC bridge exposing `checkForUpdates`, `downloadUpdate`, `installUpdate` and event listeners to the renderer |
+| `src/components/UpdateNotification.js` | React UI for update notifications, progress, and install prompts |
+| `.github/workflows/release-electron.yml` | CI workflow that builds, packages, generates `latest.yml`, and uploads to GitHub Releases |
+
+### Important Design Decisions
+
+- **Deferred import**: `electron-updater` is imported inside `initAutoUpdater()` (not at the top of the file) so the app never crashes if `app-update.yml` is missing (e.g. in development)
+- **Null-checked `autoUpdater`**: All references to `autoUpdater` check `if (autoUpdater)` before calling methods, so IPC handlers and scheduled checks are safe even when the updater is unavailable
+- **`latest.yml` generated in CI**: The `latest.yml` file (required by `electron-updater` to compare versions) is generated dynamically in the GitHub Actions workflow with the correct SHA512 hash and file size — not committed to the repo
+
+### GitHub Actions Workflow
+
+The actual workflow lives at `.github/workflows/release-electron.yml`:
 
 ```yaml
-name: Build and Release
+name: Release Electron App
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*.*.*'
 
 jobs:
   release:
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
-      
+          cache: 'npm'
+          cache-dependency-path: DesktopApp/package-lock.json
+
       - name: Install dependencies
         working-directory: ./DesktopApp
         run: npm ci
-      
-      - name: Build and publish
+
+      - name: Build React app
         working-directory: ./DesktopApp
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REACT_APP_API_BASE_URL: https://factor-claim.vercel.app
+          REACT_APP_API_TIMEOUT: 30000
+        run: npm run build
+
+      - name: Package Electron app
+        working-directory: ./DesktopApp
+        run: npm run make
+
+      - name: Generate latest.yml for auto-updater
+        # Computes SHA512 hash and file size
+        # Writes latest.yml alongside the installer
+        working-directory: ./DesktopApp
+        shell: pwsh
         run: |
-          npm run build
-          npm run make
-          npm run publish
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $exe = Get-ChildItem "out/make/squirrel.windows/x64/FactorClaimSetup.exe"
+          $hash = (Get-FileHash $exe.FullName -Algorithm SHA512).Hash.ToLower()
+          # ... generates latest.yml with version, sha512, size, releaseDate
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            DesktopApp/out/make/squirrel.windows/x64/*.exe
+            DesktopApp/out/make/squirrel.windows/x64/*.nupkg
+            DesktopApp/out/make/squirrel.windows/x64/RELEASES
+            DesktopApp/out/make/squirrel.windows/x64/latest.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### Releasing a New Version
+
+```bash
+# 1. Bump version in package.json
+# 2. Commit and push
+git add -A
+git commit -m "Release v1.2.5"
+git push
+
+# 3. Create and push a tag — this triggers the CI workflow
+git tag v1.2.5
+git push origin v1.2.5
+
+# 4. CI builds, packages, generates latest.yml, and creates the GitHub Release automatically
 ```
 
 ## Security Considerations
@@ -284,14 +387,16 @@ npm run publish
 ### File Structure
 ```
 DesktopApp/
+  ├── app-update.yml           # GitHub provider config (bundled into resources/)
+  ├── dev-app-update.yml       # Provider config for local dev testing
   ├── public/
-  │   ├── electron.js          # Main process (auto-updater logic)
+  │   ├── electron.js          # Main process (deferred auto-updater init)
   │   └── preload.js           # IPC bridge
   ├── src/
   │   ├── components/
   │   │   └── UpdateNotification.js  # Update UI
   │   └── App.js               # Includes UpdateNotification
-  ├── forge.config.js          # Electron Forge config
+  ├── forge.config.js          # Electron Forge config (extraResource: app-update.yml)
   └── package.json             # Version and repository info
 ```
 

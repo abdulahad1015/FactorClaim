@@ -42,6 +42,31 @@ jobs:
       working-directory: ./DesktopApp
       run: npm run make
     
+    - name: Generate latest.yml for auto-updater
+      working-directory: ./DesktopApp
+      shell: pwsh
+      run: |
+        $version = (Get-Content package.json | ConvertFrom-Json).version
+        $exe = Get-ChildItem "out/make/squirrel.windows/x64/FactorClaimSetup.exe" -ErrorAction SilentlyContinue
+        if ($exe) {
+          $hash = (Get-FileHash $exe.FullName -Algorithm SHA512).Hash.ToLower()
+          $size = $exe.Length
+          $date = Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ"
+          @"
+        version: $version
+        files:
+          - url: FactorClaimSetup.exe
+            sha512: $hash
+            size: $size
+        path: FactorClaimSetup.exe
+        sha512: $hash
+        releaseDate: '$date'
+        "@ | Out-File -FilePath "out/make/squirrel.windows/x64/latest.yml" -Encoding utf8
+          Write-Host "Generated latest.yml for version $version"
+        } else {
+          Write-Host "WARNING: FactorClaimSetup.exe not found, skipping latest.yml"
+        }
+    
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
@@ -49,6 +74,7 @@ jobs:
           DesktopApp/out/make/squirrel.windows/x64/*.exe
           DesktopApp/out/make/squirrel.windows/x64/*.nupkg
           DesktopApp/out/make/squirrel.windows/x64/RELEASES
+          DesktopApp/out/make/squirrel.windows/x64/latest.yml
         draft: false
         prerelease: false
         generate_release_notes: true

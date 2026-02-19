@@ -6,7 +6,8 @@ module.exports = {
     asar: true,
     icon: 'public/favicon',
     extraResource: [
-      './build'
+      './build',
+      './app-update.yml'
     ],
   },
   rebuildConfig: {},

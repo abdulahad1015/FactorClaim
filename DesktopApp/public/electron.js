@@ -1,5 +1,4 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
-const { autoUpdater } = require('electron-updater');
 const path = require('path');
 
 // Handle Squirrel events on Windows
@@ -11,53 +10,62 @@ if (require('electron-squirrel-startup')) {
 const isDev = !app.isPackaged;
 
 let mainWindow;
+let autoUpdater = null;
 
-// Configure auto-updater
-autoUpdater.autoDownload = false; // Don't auto-download, let user decide
-autoUpdater.autoInstallOnAppQuit = true;
-
-// Auto-updater event handlers
-autoUpdater.on('checking-for-update', () => {
-  console.log('Checking for updates...');
-  if (mainWindow) {
-    mainWindow.webContents.send('update-checking');
+/**
+ * Initialize the auto-updater safely.
+ * - Only runs in production (app-update.yml only exists in packaged builds)
+ * - Wrapped in try-catch so a missing/broken config never crashes the app
+ */
+function initAutoUpdater() {
+  if (isDev) {
+    console.log('Auto-updater: skipped (development mode)');
+    return;
   }
-});
 
-autoUpdater.on('update-available', (info) => {
-  console.log('Update available:', info);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-available', info);
-  }
-});
+  try {
+    const { autoUpdater: updater } = require('electron-updater');
+    autoUpdater = updater;
 
-autoUpdater.on('update-not-available', (info) => {
-  console.log('Update not available:', info);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-not-available', info);
-  }
-});
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = true;
 
-autoUpdater.on('error', (err) => {
-  console.error('Update error:', err);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-error', err.message);
-  }
-});
+    autoUpdater.on('checking-for-update', () => {
+      console.log('Checking for updates...');
+      if (mainWindow) mainWindow.webContents.send('update-checking');
+    });
 
-autoUpdater.on('download-progress', (progressObj) => {
-  console.log('Download progress:', progressObj);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-download-progress', progressObj);
-  }
-});
+    autoUpdater.on('update-available', (info) => {
+      console.log('Update available:', info.version);
+      if (mainWindow) mainWindow.webContents.send('update-available', info);
+    });
 
-autoUpdater.on('update-downloaded', (info) => {
-  console.log('Update downloaded:', info);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-downloaded', info);
+    autoUpdater.on('update-not-available', (info) => {
+      console.log('App is up to date:', info.version);
+      if (mainWindow) mainWindow.webContents.send('update-not-available', info);
+    });
+
+    autoUpdater.on('error', (err) => {
+      console.error('Auto-updater error:', err.message);
+      if (mainWindow) mainWindow.webContents.send('update-error', err.message);
+    });
+
+    autoUpdater.on('download-progress', (progressObj) => {
+      console.log(`Download progress: ${Math.round(progressObj.percent)}%`);
+      if (mainWindow) mainWindow.webContents.send('update-download-progress', progressObj);
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+      console.log('Update downloaded:', info.version);
+      if (mainWindow) mainWindow.webContents.send('update-downloaded', info);
+    });
+
+    console.log('Auto-updater: initialized successfully');
+  } catch (error) {
+    console.error('Auto-updater: failed to initialize -', error.message);
+    autoUpdater = null;
   }
-});
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -106,17 +114,22 @@ function createWindow() {
 // App ready event
 app.whenReady().then(() => {
   createWindow();
+  initAutoUpdater();
 
-  // Check for updates only in production
-  if (!isDev) {
+  // Schedule update checks only when updater is available
+  if (autoUpdater) {
     // Check for updates on app start (after a delay to let the app load)
     setTimeout(() => {
-      autoUpdater.checkForUpdates();
+      autoUpdater.checkForUpdates().catch((err) =>
+        console.error('Scheduled update check failed:', err.message)
+      );
     }, 5000);
 
     // Check for updates every 4 hours
     setInterval(() => {
-      autoUpdater.checkForUpdates();
+      autoUpdater.checkForUpdates().catch((err) =>
+        console.error('Scheduled update check failed:', err.message)
+      );
     }, 4 * 60 * 60 * 1000);
   }
 
@@ -144,22 +157,29 @@ ipcMain.handle('app-name', () => {
 });
 
 // IPC handlers for auto-updates
-ipcMain.handle('check-for-updates', () => {
-  if (!isDev) {
-    autoUpdater.checkForUpdates();
+ipcMain.handle('check-for-updates', async () => {
+  if (autoUpdater) {
+    try {
+      await autoUpdater.checkForUpdates();
+    } catch (err) {
+      console.error('Manual update check failed:', err.message);
+    }
   }
-  return { isDev };
+  return { isDev, updaterAvailable: !!autoUpdater };
 });
 
-ipcMain.handle('download-update', () => {
-  if (!isDev) {
-    autoUpdater.downloadUpdate();
+ipcMain.handle('download-update', async () => {
+  if (autoUpdater) {
+    try {
+      await autoUpdater.downloadUpdate();
+    } catch (err) {
+      console.error('Update download failed:', err.message);
+    }
   }
 });
 
 ipcMain.handle('install-update', () => {
-  if (!isDev) {
-    // Force quit and install immediately without waiting
+  if (autoUpdater) {
     setImmediate(() => {
       autoUpdater.quitAndInstall(false, true);
     });
