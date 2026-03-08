@@ -13,7 +13,6 @@ const RepDashboard = () => {
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
-  const [currentItem, setCurrentItem] = useState(null);
   const [currentClaim, setCurrentClaim] = useState(null);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -75,7 +74,6 @@ const RepDashboard = () => {
   };
 
   const handleAddClaim = () => {
-    setCurrentItem(null);
     setModalType('claim');
     setShowModal(true);
   };
