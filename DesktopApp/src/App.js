@@ -45,7 +45,7 @@ function App() {
             <Route
               path="/warehouse/*"
               element={
-                <ProtectedRoute allowedRoles={['Warehouse Manager']}>
+                <ProtectedRoute allowedRoles={['Sales Manager']}>
                   <WarehouseDashboard />
                 </ProtectedRoute>
               }

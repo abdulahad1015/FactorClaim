@@ -586,9 +586,11 @@ const StatisticsTab = ({ statistics, claims, formatDate, getUserName }) => {
                   <td>{getUserName(claim.rep_id)}</td>
                   <td>{claim.items?.length || 0}</td>
                   <td>
-                    <span className={`badge ${claim.verified ? 'badge-success' : 'badge-warning'}`}>
-                      {claim.verified ? 'Verified' : 'Pending'}
-                    </span>
+                    {(() => {
+                      const s = claim.status || (claim.verified ? 'Approved' : 'Bilty Pending');
+                      const c = { 'Bilty Pending': 'badge-warning', 'Approval Pending': 'badge-info', 'Approved': 'badge-success', 'Rejected': 'badge-danger' };
+                      return <span className={`badge ${c[s] || 'badge-secondary'}`}>{s}</span>;
+                    })()}
                   </td>
                 </tr>
               ))}
@@ -838,7 +840,7 @@ const UserModal = ({ user, onSave, onClose }) => {
             >
               <option value="Rep">Representative</option>
               <option value="Factory">Factory User</option>
-              <option value="Warehouse Manager">Warehouse Manager</option>
+              <option value="Sales Manager">Sales Manager</option>
               <option value="Admin">Admin</option>
             </select>
           </div>

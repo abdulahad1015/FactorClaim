@@ -2,7 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from ..models.user import UserCreate, UserUpdate, UserResponse, UserType
 from ..utils.crud_user import user_crud
-from ..utils.dependencies import require_admin, get_current_active_user
+from ..utils.dependencies import require_admin, require_admin_or_warehouse, get_current_active_user
 
 
 router = APIRouter()
@@ -22,7 +22,7 @@ async def create_user(user: UserCreate):
     return await user_crud.create_user(user)
 
 
-@router.get("/", response_model=List[dict], dependencies=[Depends(require_admin)])
+@router.get("/", response_model=List[dict], dependencies=[Depends(require_admin_or_warehouse)])
 async def read_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
@@ -46,7 +46,7 @@ async def read_user_me(current_user: dict = Depends(get_current_active_user)):
     return user_response
 
 
-@router.get("/{user_id}", response_model=dict, dependencies=[Depends(require_admin)])
+@router.get("/{user_id}", response_model=dict, dependencies=[Depends(require_admin_or_warehouse)])
 async def read_user(user_id: str):
     """Get user by ID (Admin only)"""
     user = await user_crud.get_user(user_id)

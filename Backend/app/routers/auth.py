@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
@@ -102,22 +101,3 @@ async def simple_login(name: str, type: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Login failed: {str(e)}"
         )
-
-
-@router.post("/token", response_model=Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    """OAuth2 compatible token endpoint"""
-    user = await user_crud.authenticate(
-        email=form_data.username,  # OAuth2 uses username field
-        password=form_data.password
-    )
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    token_data = auth_utils.create_token_for_user(user)
-    return Token(**token_data)

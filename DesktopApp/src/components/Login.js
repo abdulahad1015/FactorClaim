@@ -43,7 +43,7 @@ const Login = () => {
         case 'Factory':
           navigate('/factory');
           break;
-        case 'Warehouse Manager':
+        case 'Sales Manager':
           navigate('/warehouse');
           break;
         default:

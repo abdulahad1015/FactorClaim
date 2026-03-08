@@ -142,7 +142,7 @@ const WarehouseDashboard = () => {
   return (
     <div>
       <nav className="navbar">
-        <div className="navbar-brand">FactorClaim - Warehouse Manager</div>
+        <div className="navbar-brand">FactorClaim - Sales Manager</div>
         <div className="navbar-user">
           <span className="navbar-username">{user?.name}</span>
           <button onClick={handleLogout} className="navbar-logout">
@@ -153,7 +153,7 @@ const WarehouseDashboard = () => {
 
       <div className="dashboard">
         <div className="dashboard-header">
-          <h1 className="dashboard-title">Warehouse Manager Dashboard</h1>
+          <h1 className="dashboard-title">Sales Manager Dashboard</h1>
           <p className="dashboard-subtitle">Manage merchants, view claims, and track statistics</p>
         </div>
 
@@ -330,9 +330,11 @@ const ClaimsTab = ({ claims, users, merchants, onView, formatDate, getUserName, 
                 <td>{getMerchantName(claim.merchant_id)}</td>
                 <td>{claim.items?.length || 0} items</td>
                 <td>
-                  <span className={`status-badge ${claim.verified ? 'status-verified' : 'status-pending'}`}>
-                    {claim.verified ? 'Verified' : 'Pending'}
-                  </span>
+                  {(() => {
+                    const s = claim.status || (claim.verified ? 'Approved' : 'Bilty Pending');
+                    const c = { 'Bilty Pending': 'badge-warning', 'Approval Pending': 'badge-info', 'Approved': 'badge-success', 'Rejected': 'badge-danger' };
+                    return <span className={`badge ${c[s] || 'badge-secondary'}`}>{s}</span>;
+                  })()}
                 </td>
                 <td>
                   <button className="btn btn-secondary" onClick={() => onView(claim)}>

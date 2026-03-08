@@ -74,43 +74,6 @@ const RepDashboard = () => {
     }
   };
 
-  const handleAddMerchant = () => {
-    setCurrentItem(null);
-    setModalType('merchant');
-    setShowModal(true);
-  };
-
-  const handleEditMerchant = (merchant) => {
-    setCurrentItem(merchant);
-    setModalType('merchant');
-    setShowModal(true);
-  };
-
-  const handleDeleteMerchant = async (id) => {
-    if (window.confirm('Are you sure you want to delete this merchant?')) {
-      try {
-        await merchantsAPI.delete(id);
-        loadData();
-      } catch (err) {
-        setError(getErrorMessage(err, 'Failed to delete merchant'));
-      }
-    }
-  };
-
-  const handleSaveMerchant = async (merchantData) => {
-    try {
-      if (currentItem) {
-        await merchantsAPI.update(currentItem._id, merchantData);
-      } else {
-        await merchantsAPI.create(merchantData);
-      }
-      setShowModal(false);
-      loadData();
-    } catch (err) {
-      setError(getErrorMessage(err, 'Failed to save merchant'));
-    }
-  };
-
   const handleAddClaim = () => {
     setCurrentItem(null);
     setModalType('claim');
@@ -180,9 +143,6 @@ const RepDashboard = () => {
             {activeTab === 'merchants' && (
               <MerchantsTab
                 merchants={merchants}
-                onAdd={handleAddMerchant}
-                onEdit={handleEditMerchant}
-                onDelete={handleDeleteMerchant}
               />
             )}
             {activeTab === 'claims' && (
@@ -198,13 +158,6 @@ const RepDashboard = () => {
         )}
       </div>
 
-      {showModal && modalType === 'merchant' && (
-        <MerchantModal
-          merchant={currentItem}
-          onSave={handleSaveMerchant}
-          onClose={() => setShowModal(false)}
-        />
-      )}
       {showModal && modalType === 'claim' && (
         <ClaimModal
           merchants={merchants}
@@ -226,20 +179,16 @@ const RepDashboard = () => {
   );
 };
 
-const MerchantsTab = ({ merchants, onAdd, onEdit, onDelete }) => {
+const MerchantsTab = ({ merchants }) => {
   return (
     <div className="card">
       <div className="action-bar">
-        <h2>Merchants Management</h2>
-        <button className="btn btn-primary action-bar-btn" onClick={onAdd}>
-          + Add Merchant
-        </button>
+        <h2>Merchants</h2>
       </div>
       {merchants.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon">🏪</div>
           <div className="empty-state-text">No merchants found</div>
-          <button className="btn btn-primary" onClick={onAdd}>Add Your First Merchant</button>
         </div>
       ) : (
         <table className="table">
@@ -249,7 +198,6 @@ const MerchantsTab = ({ merchants, onAdd, onEdit, onDelete }) => {
               <th>Address</th>
               <th>Contact</th>
               <th>Email</th>
-              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -259,14 +207,6 @@ const MerchantsTab = ({ merchants, onAdd, onEdit, onDelete }) => {
                 <td>{merchant.address}</td>
                 <td>{merchant.contact}</td>
                 <td>{merchant.email || '-'}</td>
-                <td className="table-actions">
-                  <button className="btn btn-secondary" onClick={() => onEdit(merchant)}>
-                    Edit
-                  </button>
-                  <button className="btn btn-danger" onClick={() => onDelete(merchant._id)}>
-                    Delete
-                  </button>
-                </td>
               </tr>
             ))}
           </tbody>
@@ -315,9 +255,11 @@ const ClaimsTab = ({ claims, merchants, onAdd, onView, formatDate }) => {
                 <td>{getMerchantName(claim.merchant_id)}</td>
                 <td>{claim.items?.length || 0}</td>
                 <td>
-                  <span className={`badge ${claim.verified ? 'badge-success' : 'badge-warning'}`}>
-                    {claim.verified ? 'Verified' : 'Pending'}
-                  </span>
+                  {(() => {
+                    const s = claim.status || (claim.verified ? 'Approved' : 'Bilty Pending');
+                    const c = { 'Bilty Pending': 'badge-warning', 'Approval Pending': 'badge-info', 'Approved': 'badge-success', 'Rejected': 'badge-danger' };
+                    return <span className={`badge ${c[s] || 'badge-secondary'}`}>{s}</span>;
+                  })()}
                 </td>
                 <td>
                   <button className="btn btn-secondary" onClick={() => onView(claim)}>
@@ -329,125 +271,6 @@ const ClaimsTab = ({ claims, merchants, onAdd, onView, formatDate }) => {
           </tbody>
         </table>
       )}
-    </div>
-  );
-};
-
-const MerchantModal = ({ merchant, onSave, onClose }) => {
-  const [formData, setFormData] = useState({
-    name: merchant?.name || '',
-    address: merchant?.address || '',
-    province: merchant?.province || '',
-    city: merchant?.city || '',
-    contact: merchant?.contact || '',
-    email: merchant?.email || '',
-  });
-
-  const provinces = Object.keys(pakistanLocations);
-  const cities = formData.province ? pakistanLocations[formData.province] || [] : [];
-
-  const handleProvinceChange = (province) => {
-    setFormData({ ...formData, province, city: '' });
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSave(formData);
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2 className="modal-title">{merchant ? 'Edit Merchant' : 'Add Merchant'}</h2>
-          <button className="modal-close" onClick={onClose}>×</button>
-        </div>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Name *</label>
-            <input
-              type="text"
-              className="form-control"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-              minLength={1}
-              maxLength={100}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Province *</label>
-            <select
-              className="form-control"
-              value={formData.province}
-              onChange={(e) => handleProvinceChange(e.target.value)}
-              required
-            >
-              <option value="">Select Province</option>
-              {provinces.map((prov) => (
-                <option key={prov} value={prov}>{prov}</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">City *</label>
-            <select
-              className="form-control"
-              value={formData.city}
-              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-              required
-              disabled={!formData.province}
-            >
-              <option value="">Select City</option>
-              {cities.map((city) => (
-                <option key={city} value={city}>{city}</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Address *</label>
-            <input
-              type="text"
-              className="form-control"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              required
-              minLength={1}
-              maxLength={200}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Contact *</label>
-            <input
-              type="text"
-              className="form-control"
-              value={formData.contact}
-              onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
-              required
-              minLength={10}
-              maxLength={15}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Email</label>
-            <input
-              type="email"
-              className="form-control"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              maxLength={100}
-            />
-          </div>
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary">
-              Save
-            </button>
-          </div>
-        </form>
-      </div>
     </div>
   );
 };
