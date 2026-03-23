@@ -177,14 +177,28 @@ class CRUDClaim(CRUDBase):
         claim_id: str, 
         verify_data: ClaimVerify
     ) -> Optional[Dict[str, Any]]:
-        """Verify a claim"""
+        """Verify a claim with per-item approval/rejection results"""
         update_data = {
             "verified": True,
             "verified_by": ObjectId(verify_data.verified_by),
             "verified_at": datetime.utcnow(),
             "notes": verify_data.notes,
+            "status": ClaimStatus.APPROVED.value,
             "updated_at": datetime.utcnow()
         }
+        
+        # Store per-item verification status if provided
+        if verify_data.item_results:
+            claim = await self.get(claim_id)
+            if claim:
+                items = claim.get("items", [])
+                for result in verify_data.item_results:
+                    for item in items:
+                        if str(item.get("item_id")) == str(result.item_id):
+                            item["verification_status"] = result.status
+                            item["scanned_quantity"] = result.scanned_quantity
+                            break
+                update_data["items"] = items
         
         return await self.update(claim_id, update_data)
     

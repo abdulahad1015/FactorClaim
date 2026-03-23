@@ -92,7 +92,16 @@ class ClaimApprove(BaseModel):
     notes: Optional[str] = Field(default="", max_length=500)
 
 
+class ItemVerificationResult(BaseModel):
+    """Verification result for individual item"""
+    item_id: PyObjectId
+    status: str  # "approved" or "rejected"
+    scanned_quantity: int = Field(default=0, ge=0)
+    required_quantity: int = Field(default=0, ge=0)
+
+
 class ClaimVerify(BaseModel):
     """Claim verification model"""
     verified_by: PyObjectId
     notes: Optional[str] = Field(default="", max_length=500)
+    item_results: Optional[List[ItemVerificationResult]] = None

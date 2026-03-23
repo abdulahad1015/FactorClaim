@@ -11,6 +11,10 @@ const FactoryDashboard = () => {
   const [selectedClaim, setSelectedClaim] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('pending');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -79,18 +83,20 @@ const FactoryDashboard = () => {
     setSelectedClaim(claim);
   };
 
-  const handleVerifyClaim = async (claimId, notes = '') => {
-    if (window.confirm('Are you sure you want to verify this claim?')) {
-      try {
-        await claimsAPI.verify(claimId, {
-          verified_by: user?.id,
-          notes: notes
-        });
-        setSelectedClaim(null);
-        loadData();
-      } catch (err) {
-        setError(getErrorMessage(err, 'Failed to verify claim'));
+  const handleVerifyClaim = async (claimId, notes = '', itemResults = null) => {
+    try {
+      const verifyData = {
+        verified_by: user?.id,
+        notes: notes
+      };
+      if (itemResults) {
+        verifyData.item_results = itemResults;
       }
+      await claimsAPI.verify(claimId, verifyData);
+      setSelectedClaim(null);
+      loadData();
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to verify claim'));
     }
   };
 
@@ -155,6 +161,40 @@ const FactoryDashboard = () => {
   const pendingClaims = claims.filter(c => !c.verified && c.status !== 'Bilty Pending');
   const verifiedClaims = claims.filter(c => c.verified);
 
+  const filterClaims = (claimsList) => {
+    let filtered = claimsList;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(c =>
+        (c.claim_id || '').toLowerCase().includes(q) ||
+        getMerchantName(c.merchant_id).toLowerCase().includes(q) ||
+        getUserName(c.rep_id).toLowerCase().includes(q)
+      );
+    }
+
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(c => c.status === statusFilter);
+    }
+
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      filtered = filtered.filter(c => {
+        const d = new Date(c.date);
+        if (isNaN(d.getTime())) return false;
+        const diffDays = (now - d) / (1000 * 60 * 60 * 24);
+        if (dateFilter === '7') return diffDays <= 7;
+        if (dateFilter === '30') return diffDays <= 30;
+        if (dateFilter === '90') return diffDays <= 90;
+        return true;
+      });
+    }
+
+    return filtered;
+  };
+
+  const displayedClaims = filterClaims(activeTab === 'pending' ? pendingClaims : verifiedClaims);
+
   return (
     <div>
       <nav className="navbar">
@@ -195,91 +235,90 @@ const FactoryDashboard = () => {
           </div>
         </div>
 
-        {loading ? (
-          <div className="loading">Loading...</div>
-        ) : (
-          <div className="two-column-grid">
-            <div className="card">
-              <h2>Pending Claims</h2>
-              {pendingClaims.length === 0 ? (
-                <div className="empty-state">
-                  <div className="empty-state-icon">✅</div>
-                  <div className="empty-state-text">No pending claims</div>
-                </div>
-              ) : (
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Claim ID</th>
-                      <th>Date</th>
-                      <th>Items</th>
-                      <th>Status</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pendingClaims.map((claim) => (
-                      <tr key={claim._id}>
-                        <td style={{ fontFamily: 'monospace', fontSize: '0.9em', color: '#0066cc' }}>{claim.claim_id || 'N/A'}</td>
-                        <td>{formatDate(claim.date)}</td>
-                        <td>{claim.items?.length || 0}</td>
-                        <td>{getStatusBadge(claim)}</td>
-                        <td>
-                          <button
-                            className="btn btn-primary btn-sm"
-                            onClick={() => handleViewClaim(claim)}
-                          >
-                            Verify
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+        <div className="dashboard-tabs">
+          <button
+            className={`tab-button ${activeTab === 'pending' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('pending'); setSearchQuery(''); setStatusFilter('all'); setDateFilter('all'); }}
+          >
+            Pending ({pendingClaims.length})
+          </button>
+          <button
+            className={`tab-button ${activeTab === 'verified' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('verified'); setSearchQuery(''); setStatusFilter('all'); setDateFilter('all'); }}
+          >
+            Verified ({verifiedClaims.length})
+          </button>
+        </div>
 
-            <div className="card">
-              <h2>Verified Claims</h2>
-              {verifiedClaims.length === 0 ? (
-                <div className="empty-state">
-                  <div className="empty-state-icon">📦</div>
-                  <div className="empty-state-text">No verified claims yet</div>
-                </div>
-              ) : (
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Claim ID</th>
-                      <th>Date</th>
-                      <th>Items</th>
-                      <th>Status</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {verifiedClaims.map((claim) => (
-                      <tr key={claim._id}>
-                        <td style={{ fontFamily: 'monospace', fontSize: '0.9em', color: '#0066cc' }}>{claim.claim_id || 'N/A'}</td>
-                        <td>{formatDate(claim.date)}</td>
-                        <td>{claim.items?.length || 0}</td>
-                        <td>{getStatusBadge(claim)}</td>
-                        <td>
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => handleViewClaim(claim)}
-                          >
-                            View
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+        <div className="card">
+          <div style={{ display: 'fixed', gap: '10px', marginBottom: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Search by Claim ID, merchant, or rep..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ flex: '1', minWidth: '20px' }}
+            />
+
+            <select
+              className="form-control"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              style={{ width: 'auto', minWidth: '140px' }}
+            >
+              <option value="all">All Time</option>
+              <option value="7">Last 7 days</option>
+              <option value="30">Last 30 days</option>
+              <option value="90">Last 90 days</option>
+            </select>
           </div>
-        )}
+
+          {loading ? (
+            <div className="loading">Loading...</div>
+          ) : displayedClaims.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">{activeTab === 'pending' ? '✅' : '📦'}</div>
+              <div className="empty-state-text">
+                {searchQuery || statusFilter !== 'all' || dateFilter !== 'all'
+                  ? 'No claims match your filters'
+                  : activeTab === 'pending' ? 'No pending claims' : 'No verified claims yet'}
+              </div>
+            </div>
+          ) : (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Claim ID</th>
+                  <th>Date</th>
+                  <th>Merchant</th>
+                  <th>Items</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayedClaims.map((claim) => (
+                  <tr key={claim._id}>
+                    <td style={{ fontFamily: 'monospace', fontSize: '0.9em', color: '#0066cc' }}>{claim.claim_id || 'N/A'}</td>
+                    <td>{formatDate(claim.date)}</td>
+                    <td>{getMerchantName(claim.merchant_id)}</td>
+                    <td>{claim.items?.length || 0}</td>
+                    <td>{getStatusBadge(claim)}</td>
+                    <td>
+                      <button
+                        className={`btn ${activeTab === 'pending' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                        onClick={() => handleViewClaim(claim)}
+                      >
+                        {activeTab === 'pending' ? 'Verify' : 'View'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
 
       {selectedClaim && (
@@ -411,7 +450,13 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
   };
 
   const handleVerifyAfterScan = () => {
-    onVerify(claim._id || claim.id, '');
+    const itemResults = (claim.items || []).map(item => ({
+      item_id: item.item_id,
+      status: (scannedCounts[item.item_id] || 0) > 0 ? 'approved' : 'rejected',
+      scanned_quantity: scannedCounts[item.item_id] || 0,
+      required_quantity: item.quantity || 0
+    }));
+    onVerify(claim._id || claim.id, '', itemResults);
   };
 
   const handleResetScans = () => {
@@ -477,7 +522,7 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
           )}
 
           {/* Approval Section */}
-          {claim.status === 'Approval Pending' && (
+          {/* {claim.status === 'Approval Pending' && (
             <div style={{ marginBottom: '20px' }}>
               <div style={{ 
                 padding: '15px', 
@@ -486,29 +531,16 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
                 borderRadius: '4px'
               }}>
                 <p style={{ marginBottom: '10px', color: '#004085' }}>
-                  <strong>⚠️ This claim is pending your approval</strong>
+                  <strong>⚠️ This claim is pending your verification</strong>
                 </p>
-                <p style={{ marginBottom: '15px', fontSize: '0.9em', color: '#004085' }}>
-                  The bilty number has been added by the representative. Please review and approve.
+                <p style={{ marginBottom: '0', fontSize: '0.9em', color: '#004085' }}>
+                  The bilty number has been added by the representative. Please scan items below and verify.
                 </p>
-                {approvalError && (
-                  <div style={{ color: '#dc3545', fontSize: '0.875em', marginBottom: '10px', padding: '8px', backgroundColor: '#f8d7da', borderRadius: '4px' }}>
-                    {approvalError}
-                  </div>
-                )}
-                <button
-                  className="btn btn-success"
-                  onClick={handleApprove}
-                  disabled={isApproving}
-                  style={{ width: '100%' }}
-                >
-                  {isApproving ? 'Approving...' : '✓ Approve Claim'}
-                </button>
               </div>
             </div>
-          )}
+          )} */}
 
-          {/* Verification Status (for approved claims) */}
+          {/* Verification Status (for approved claims)
           {claim.status === 'Approved' && claim.verified && (
             <div style={{ marginBottom: '20px' }}>
               <h3 style={{ marginBottom: '10px', color: '#333' }}>Approval Details</h3>
@@ -530,7 +562,7 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
                 )}
               </div>
             </div>
-          )}
+          )} */}
 
           {/* Scanning Verification Section - starts directly for pending claims */}
           {isPending && scanMode && (
@@ -565,7 +597,7 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
               {/* Scanner input */}
               <div style={{ marginBottom: '15px', padding: '12px', background: '#f8f9fa', borderRadius: '4px', border: '1px solid #dee2e6' }}>
                 <label className="form-label" style={{ fontSize: '14px', marginBottom: '5px', display: 'block' }}>
-                  🔍 Scan Barcode (Batch Code)
+                  Scan Barcode (Batch Code)
                 </label>
                 <input
                   type="text"
@@ -628,18 +660,8 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
                 </tbody>
               </table>
 
-              {/* Reset button */}
-              <div style={{ marginTop: '10px', textAlign: 'right' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={handleResetScans}
-                >
-                  Reset Scans
-                </button>
-              </div>
 
-              {/* Verify button - only enabled when all items scanned */}
+              {/* Verify button - always available */}
               <div style={{ marginTop: '15px' }}>
                 {allItemsScanned ? (
                   <div style={{ 
@@ -649,30 +671,34 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
                     borderRadius: '4px',
                     textAlign: 'center'
                   }}>
-                    <p style={{ marginBottom: '10px', color: '#155724', fontWeight: '600' }}>
-                      ✓ All items have been scanned and verified!
+                    <p style={{ marginBottom: '0', color: '#155724', fontWeight: '600' }}>
+                      ✓ All items have been scanned!
                     </p>
-                    <button
-                      ref={verifyButtonRef}
-                      className="btn btn-success"
-                      onClick={handleVerifyAfterScan}
-                      style={{ width: '100%', padding: '10px', fontSize: '16px' }}
-                    >
-                      ✓ Verify Claim
-                    </button>
                   </div>
                 ) : (
                   <div style={{ 
                     padding: '15px', 
-                    backgroundColor: '#f8f9fa', 
-                    border: '1px solid #dee2e6', 
+                    backgroundColor: '#fff3cd', 
+                    border: '1px solid #ffc107', 
                     borderRadius: '4px',
-                    textAlign: 'center',
-                    color: '#6c757d'
+                    textAlign: 'center'
                   }}>
-                    Scan all items to enable verification ({totalRequired - totalScanned} items remaining)
+                    <p style={{ marginBottom: '5px', color: '#856404', fontWeight: '600' }}>
+                      {totalScanned} of {totalRequired} items scanned
+                    </p>
+                    <p style={{ marginBottom: '0', color: '#856404', fontSize: '0.85em' }}>
+                      Scanned items will be approved, unscanned items will be rejected.
+                    </p>
                   </div>
                 )}
+                <button
+                  ref={verifyButtonRef}
+                  className="btn btn-success"
+                  onClick={handleVerifyAfterScan}
+                  style={{ width: '100%', padding: '10px', fontSize: '16px', marginTop: '10px' }}
+                >
+                  ✓ Verified
+                </button>
               </div>
             </div>
           )}
@@ -686,18 +712,36 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
                   <thead>
                     <tr>
                       <th>Item Name</th>
-                      <th>Quantity</th>
-                      <th>Notes</th>
+                      <th>Claimed</th>
+                      <th>Approved</th>
+                      <th>Rejected</th>
+                      <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {claim.items?.map((item, index) => (
-                      <tr key={index}>
-                        <td>{getItemName(item.item_id)}</td>
-                        <td>{item.quantity}</td>
-                        <td>{item.notes || '-'}</td>
-                      </tr>
-                    ))}
+                    {claim.items?.map((item, index) => {
+                      const claimed = item.quantity || 0;
+                      const verified = item.scanned_quantity != null ? item.scanned_quantity : (item.verification_status === 'approved' ? claimed : 0);
+                      const notVerified = Math.max(0, claimed - verified);
+                      const status = item.verification_status;
+                      return (
+                        <tr key={index}>
+                          <td>{getItemName(item.item_id)}</td>
+                          <td style={{ fontWeight: '600' }}>{claimed}</td>
+                          <td style={{ fontWeight: '600', color: '#28a745' }}>{verified}</td>
+                          <td style={{ fontWeight: '600', color: notVerified > 0 ? '#dc3545' : '#28a745' }}>{notVerified}</td>
+                          <td>
+                            {status === 'approved' ? (
+                              <span className="badge badge-success">Approved</span>
+                            ) : status === 'rejected' ? (
+                              <span className="badge badge-danger">Rejected</span>
+                            ) : (
+                              <span className="badge badge-secondary">Pending</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               ) : (

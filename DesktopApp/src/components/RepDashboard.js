@@ -466,7 +466,7 @@ const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
             
             {/* Barcode Scanner Input */}
             <div style={{ marginBottom: '15px', padding: '10px', background: '#f8f9fa', borderRadius: '4px' }}>
-              <label className="form-label" style={{ fontSize: '14px', marginBottom: '5px', display: 'block' }}>🔍 Scan Barcode (Batch Code)</label>
+              <label className="form-label" style={{ fontSize: '14px', marginBottom: '5px', display: 'block' }}>Scan Barcode (Batch Code)</label>
               <input
                 type="text"
                 className="form-control"
