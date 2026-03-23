@@ -337,9 +337,6 @@ const FactoryDashboard = () => {
 };
 
 const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantName, getItemName, formatDate }) => {
-  const [isApproving, setIsApproving] = useState(false);
-  const [approvalError, setApprovalError] = useState('');
-
   // Scanning verification state - start directly in scan mode for pending claims
   const isPending = !claim.verified && claim.status !== 'Approved';
   const [scanMode, setScanMode] = useState(isPending);
@@ -365,26 +362,6 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
         {status || 'Pending'}
       </span>
     );
-  };
-
-  const handleApprove = async () => {
-    if (!window.confirm('Are you sure you want to approve this claim?')) {
-      return;
-    }
-
-    setIsApproving(true);
-    setApprovalError('');
-
-    try {
-      await claimsAPI.approve(claim._id || claim.id);
-      alert('Claim approved successfully!');
-      onClose();
-      window.location.reload();
-    } catch (err) {
-      setApprovalError(getErrorMessage(err, 'Failed to approve claim'));
-    } finally {
-      setIsApproving(false);
-    }
   };
 
   // Calculate total required and total scanned
