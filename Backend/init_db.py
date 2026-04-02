@@ -30,11 +30,21 @@ async def init_database():
         await users_collection.create_index("email", unique=True)
         print("✅ Created 'users' collection with indexes")
         
-        # Items collection
-        items_collection = db["items"]
-        await items_collection.create_index("item_code", unique=True)
-        await items_collection.create_index("merchant_id")
-        print("✅ Created 'items' collection with indexes")
+        # Product Types collection
+        product_types_collection = db["product_types"]
+        await product_types_collection.create_index("name", unique=True)
+        print("✅ Created 'product_types' collection with indexes")
+        
+        # Models collection
+        models_collection = db["models"]
+        await models_collection.create_index("product_type_id")
+        print("✅ Created 'models' collection with indexes")
+        
+        # Batches collection
+        batches_collection = db["batches"]
+        await batches_collection.create_index("batch_code", unique=True)
+        await batches_collection.create_index("model_id")
+        print("✅ Created 'batches' collection with indexes")
         
         # Merchants collection
         merchants_collection = db["merchants"]

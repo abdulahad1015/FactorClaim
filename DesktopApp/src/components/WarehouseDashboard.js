@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { merchantsAPI, claimsAPI, usersAPI, itemsAPI, getErrorMessage } from '../services/api';
+import { merchantsAPI, claimsAPI, usersAPI, batchesAPI, productModelsAPI, productTypesAPI, getErrorMessage } from '../services/api';
 import pakistanLocations from '../data/pakistanLocations';
 
 const WarehouseDashboard = () => {
@@ -9,7 +9,9 @@ const WarehouseDashboard = () => {
   const [merchants, setMerchants] = useState([]);
   const [claims, setClaims] = useState([]);
   const [users, setUsers] = useState([]);
-  const [items, setItems] = useState([]);
+  const [batches, setBatches] = useState([]);
+  const [productModels, setProductModels] = useState([]);
+  const [productTypes, setProductTypes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -27,16 +29,20 @@ const WarehouseDashboard = () => {
         const data = await merchantsAPI.getAll();
         setMerchants(data);
       } else if (activeTab === 'claims') {
-        const [claimsData, usersData, merchantsData, itemsData] = await Promise.all([
+        const [claimsData, usersData, merchantsData, batchesData, modelsData, typesData] = await Promise.all([
           claimsAPI.getAll(),
           usersAPI.getAll(),
           merchantsAPI.getAll(),
-          itemsAPI.getAll()
+          batchesAPI.getAll(),
+          productModelsAPI.getAll(),
+          productTypesAPI.getAll()
         ]);
         setClaims(claimsData);
         setUsers(usersData);
         setMerchants(merchantsData);
-        setItems(itemsData);
+        setBatches(batchesData);
+        setProductModels(modelsData);
+        setProductTypes(typesData);
       } else if (activeTab === 'statistics') {
         const [claimsData, usersData, merchantsData] = await Promise.all([
           claimsAPI.getAll(),
@@ -231,7 +237,9 @@ const WarehouseDashboard = () => {
       {showModal && modalType === 'viewClaim' && (
         <ViewClaimModal
           claim={currentClaim}
-          items={items}
+          batches={batches}
+          productModels={productModels}
+          productTypes={productTypes}
           merchants={merchants}
           users={users}
           getUserName={getUserName}
@@ -579,7 +587,7 @@ const MerchantModal = ({ merchant, onSave, onClose }) => {
   );
 };
 
-const ViewClaimModal = ({ claim, items, merchants, users, getUserName, getMerchantName, onClose }) => {
+const ViewClaimModal = ({ claim, batches, productModels, productTypes, merchants, users, getUserName, getMerchantName, onClose }) => {
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {
@@ -590,9 +598,12 @@ const ViewClaimModal = ({ claim, items, merchants, users, getUserName, getMercha
     }
   };
 
-  const getItemName = (itemId) => {
-    const item = items.find(i => i._id === itemId || i.id === itemId);
-    return item ? `${item.model_name} (${item.wattage}W - ${item.batch})` : 'Unknown Item';
+  const getBatchName = (batchId) => {
+    const batch = batches.find(b => b._id === batchId || b.id === batchId);
+    if (!batch) return 'Unknown Batch';
+    const model = productModels.find(m => m._id === batch.model_id);
+    const typeName = model ? (productTypes.find(t => t._id === model.product_type_id)?.name || '') : '';
+    return `${batch.batch_code} - ${model ? model.name : 'Unknown'} (${model ? model.wattage : '?'}W${typeName ? ` - ${typeName}` : ''})`;
   };
 
   const getStatusBadge = (status) => {
@@ -709,7 +720,7 @@ const ViewClaimModal = ({ claim, items, merchants, users, getUserName, getMercha
                 <tbody>
                   {claim.items.map((item, index) => (
                     <tr key={index}>
-                      <td>{getItemName(item.item_id)}</td>
+                      <td>{getBatchName(item.batch_id)}</td>
                       <td>{item.quantity}</td>
                       <td>{item.notes || '-'}</td>
                     </tr>

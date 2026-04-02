@@ -103,35 +103,93 @@ export const usersAPI = {
   },
 };
 
-// Items API
-export const itemsAPI = {
+// Product Types API
+export const productTypesAPI = {
   getAll: async () => {
-    const response = await api.get('/api/items/');
+    const response = await api.get('/api/product-types/');
     return response.data;
   },
   
   getById: async (id) => {
-    const response = await api.get(`/api/items/${id}`);
+    const response = await api.get(`/api/product-types/${id}`);
     return response.data;
   },
   
-  getByBatch: async (batchCode) => {
-    const response = await api.get(`/api/items/batch/${batchCode}`);
+  create: async (data) => {
+    const response = await api.post('/api/product-types/', data);
     return response.data;
   },
   
-  create: async (itemData) => {
-    const response = await api.post('/api/items/', itemData);
-    return response.data;
-  },
-  
-  update: async (id, itemData) => {
-    const response = await api.put(`/api/items/${id}`, itemData);
+  update: async (id, data) => {
+    const response = await api.put(`/api/product-types/${id}`, data);
     return response.data;
   },
   
   delete: async (id) => {
-    const response = await api.delete(`/api/items/${id}`);
+    const response = await api.delete(`/api/product-types/${id}`);
+    return response.data;
+  },
+};
+
+// Product Models API
+export const productModelsAPI = {
+  getAll: async (productTypeId = null) => {
+    const params = productTypeId ? `?product_type_id=${productTypeId}` : '';
+    const response = await api.get(`/api/models/${params}`);
+    return response.data;
+  },
+  
+  getById: async (id) => {
+    const response = await api.get(`/api/models/${id}`);
+    return response.data;
+  },
+  
+  create: async (data) => {
+    const response = await api.post('/api/models/', data);
+    return response.data;
+  },
+  
+  update: async (id, data) => {
+    const response = await api.put(`/api/models/${id}`, data);
+    return response.data;
+  },
+  
+  delete: async (id) => {
+    const response = await api.delete(`/api/models/${id}`);
+    return response.data;
+  },
+};
+
+// Batches API
+export const batchesAPI = {
+  getAll: async (modelId = null) => {
+    const params = modelId ? `?model_id=${modelId}` : '';
+    const response = await api.get(`/api/batches/${params}`);
+    return response.data;
+  },
+  
+  getById: async (id) => {
+    const response = await api.get(`/api/batches/${id}`);
+    return response.data;
+  },
+  
+  getByBarcode: async (batchCode) => {
+    const response = await api.get(`/api/batches/barcode/${batchCode}`);
+    return response.data;
+  },
+  
+  create: async (data) => {
+    const response = await api.post('/api/batches/', data);
+    return response.data;
+  },
+  
+  update: async (id, data) => {
+    const response = await api.put(`/api/batches/${id}`, data);
+    return response.data;
+  },
+  
+  delete: async (id) => {
+    const response = await api.delete(`/api/batches/${id}`);
     return response.data;
   },
 };

@@ -4,7 +4,7 @@ from bson import ObjectId
 from fastapi import HTTPException, status
 from ..utils.crud_base import CRUDBase
 from ..models.claim import Claim, ClaimCreate, ClaimUpdate, ClaimVerify, ClaimStatus, ClaimApprove
-from ..utils.crud_item import item_crud
+from ..utils.crud_batch import batch_crud
 
 
 class CRUDClaim(CRUDBase):
@@ -37,57 +37,56 @@ class CRUDClaim(CRUDBase):
         
         return f"{next_num:04d}"
     
-    async def _validate_item_production_dates(self, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    async def _validate_batch_warranty(self, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Validate item production dates against 15-month threshold.
-        Returns list of warnings for items older than 15 months that aren't force_add.
+        Validate batch warranty based on production_date + warranty_period.
+        Returns list of warnings for batches past warranty that aren't force_add.
         """
         warnings = []
-        fifteen_months_ago = datetime.utcnow() - timedelta(days=15*30)  # Approximate 15 months
         
         for idx, claim_item in enumerate(items):
-            item_id = claim_item.get("item_id")
+            batch_id = claim_item.get("batch_id")
             force_add = claim_item.get("force_add", False)
             
             if not force_add:
-                # Get item details to check production date
-                item = await item_crud.get_item(str(item_id))
-                if item:
-                    production_date = item.get("production_date")
+                batch = await batch_crud.get_batch(str(batch_id))
+                if batch:
+                    production_date = batch.get("production_date")
+                    warranty_period = batch.get("warranty_period", 12)
                     
-                    # Convert string to datetime if needed
                     if isinstance(production_date, str):
                         try:
                             production_date = datetime.fromisoformat(production_date.replace('Z', '+00:00'))
                         except (ValueError, AttributeError):
-                            continue  # Skip if date parsing fails
+                            continue
                     
-                    if production_date and isinstance(production_date, datetime) and production_date < fifteen_months_ago:
-                        warnings.append({
-                            "item_index": idx,
-                            "item_id": str(item_id),
-                            "model_name": item.get("model_name"),
-                            "batch": item.get("batch"),
-                            "production_date": production_date.isoformat() if hasattr(production_date, 'isoformat') else str(production_date),
-                            "age_months": int((datetime.utcnow() - production_date).days / 30),
-                            "message": f"Item '{item.get('model_name')}' (batch: {item.get('batch')}) is older than 15 months"
-                        })
+                    if production_date and isinstance(production_date, datetime):
+                        age_months = int((datetime.utcnow() - production_date).days / 30)
+                        if age_months > warranty_period:
+                            warnings.append({
+                                "item_index": idx,
+                                "batch_id": str(batch_id),
+                                "batch_code": batch.get("batch_code"),
+                                "production_date": production_date.isoformat() if hasattr(production_date, 'isoformat') else str(production_date),
+                                "warranty_period": warranty_period,
+                                "age_months": age_months,
+                                "message": f"Batch '{batch.get('batch_code')}' warranty has expired ({age_months} months old, warranty: {warranty_period} months)"
+                            })
         
         return warnings
     
     async def create_claim(self, claim_in: ClaimCreate) -> Dict[str, Any]:
-        """Create a new claim with unique claim_id and production date validation"""
+        """Create a new claim with unique claim_id and warranty validation"""
         claim_data = claim_in.dict()
         
-        # Validate item production dates before creating claim
-        warnings = await self._validate_item_production_dates(claim_data.get("items", []))
+        # Validate batch warranty before creating claim
+        warnings = await self._validate_batch_warranty(claim_data.get("items", []))
         if warnings:
-            # Raise an error with the warnings so the frontend can prompt the user
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
                     "error": "items_require_confirmation",
-                    "message": "Some items are older than 15 months and require confirmation",
+                    "message": "Some batches have expired warranty and require confirmation",
                     "warnings": warnings
                 }
             )
@@ -98,10 +97,10 @@ class CRUDClaim(CRUDBase):
         if "merchant_id" in claim_data:
             claim_data["merchant_id"] = ObjectId(claim_data["merchant_id"])
         
-        # Convert item_ids in items
+        # Convert batch_ids in items
         for item in claim_data.get("items", []):
-            if "item_id" in item:
-                item["item_id"] = ObjectId(item["item_id"])
+            if "batch_id" in item:
+                item["batch_id"] = ObjectId(item["batch_id"])
         
         # Generate unique claim ID
         claim_data["claim_id"] = await self._generate_claim_id()
@@ -164,11 +163,11 @@ class CRUDClaim(CRUDBase):
         if "verified_by" in claim_data and claim_data["verified_by"]:
             claim_data["verified_by"] = ObjectId(claim_data["verified_by"])
         
-        # Convert item_ids in items if present
+        # Convert batch_ids in items if present
         if "items" in claim_data:
             for item in claim_data["items"]:
-                if "item_id" in item:
-                    item["item_id"] = ObjectId(item["item_id"])
+                if "batch_id" in item:
+                    item["batch_id"] = ObjectId(item["batch_id"])
         
         return await self.update(claim_id, claim_data)
     
@@ -194,7 +193,7 @@ class CRUDClaim(CRUDBase):
                 items = claim.get("items", [])
                 for result in verify_data.item_results:
                     for item in items:
-                        if str(item.get("item_id")) == str(result.item_id):
+                        if str(item.get("batch_id")) == str(result.batch_id):
                             item["verification_status"] = result.status
                             item["scanned_quantity"] = result.scanned_quantity
                             break

@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { merchantsAPI, claimsAPI, itemsAPI, getErrorMessage } from '../services/api';
+import { merchantsAPI, claimsAPI, batchesAPI, productModelsAPI, productTypesAPI, getErrorMessage } from '../services/api';
 import pakistanLocations from '../data/pakistanLocations';
 
 const RepDashboard = () => {
   const [activeTab, setActiveTab] = useState('merchants');
   const [merchants, setMerchants] = useState([]);
   const [claims, setClaims] = useState([]);
-  const [items, setItems] = useState([]);
+  const [batches, setBatches] = useState([]);
+  const [productModels, setProductModels] = useState([]);
+  const [productTypes, setProductTypes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -25,9 +27,11 @@ const RepDashboard = () => {
         const data = await merchantsAPI.getAll();
         setMerchants(data);
       } else if (activeTab === 'claims') {
-        const [claimsData, itemsData, merchantsData] = await Promise.all([
+        const [claimsData, batchesData, modelsData, typesData, merchantsData] = await Promise.all([
           claimsAPI.getAll(),
-          itemsAPI.getAll(),
+          batchesAPI.getAll(),
+          productModelsAPI.getAll(),
+          productTypesAPI.getAll(),
           merchantsAPI.getAll()
         ]);
         // Filter claims to show only ones created by current user
@@ -35,7 +39,9 @@ const RepDashboard = () => {
           claim.rep_id === user?.id || claim.rep_id === user?._id
         );
         setClaims(userClaims);
-        setItems(itemsData);
+        setBatches(batchesData);
+        setProductModels(modelsData);
+        setProductTypes(typesData);
         setMerchants(merchantsData);
       }
     } catch (err) {
@@ -159,7 +165,9 @@ const RepDashboard = () => {
       {showModal && modalType === 'claim' && (
         <ClaimModal
           merchants={merchants}
-          items={items}
+          batches={batches}
+          productModels={productModels}
+          productTypes={productTypes}
           userId={user?.id}
           onSave={handleSaveClaim}
           onClose={() => setShowModal(false)}
@@ -168,7 +176,9 @@ const RepDashboard = () => {
       {showModal && modalType === 'viewClaim' && (
         <ViewClaimModal
           claim={currentClaim}
-          items={items}
+          batches={batches}
+          productModels={productModels}
+          productTypes={productTypes}
           merchants={merchants}
           onClose={() => setShowModal(false)}
         />
@@ -273,7 +283,7 @@ const ClaimsTab = ({ claims, merchants, onAdd, onView, formatDate }) => {
   );
 };
 
-const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
+const ClaimModal = ({ merchants, batches, productModels, productTypes, userId, onSave, onClose }) => {
   const [formData, setFormData] = useState({
     merchant_id: '',
     items: [],
@@ -282,7 +292,7 @@ const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
 
   const [filterProvince, setFilterProvince] = useState('');
   const [filterCity, setFilterCity] = useState('');
-  const [selectedItem, setSelectedItem] = useState('');
+  const [selectedBatch, setSelectedBatch] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [itemNotes, setItemNotes] = useState('');
   const [batchCode, setBatchCode] = useState('');
@@ -296,33 +306,42 @@ const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
     return true;
   });
 
+  const getBatchLabel = (batch) => {
+    const model = productModels.find(m => m._id === batch.model_id);
+    const typeName = model ? (productTypes.find(t => t._id === model.product_type_id)?.name || '') : '';
+    const modelName = model ? model.name : '';
+    const wattage = model ? model.wattage : '';
+    return `${batch.batch_code} - ${modelName} ${wattage}W${typeName ? ` (${typeName})` : ''}`;
+  };
+
   const handleBatchScan = async (e) => {
     if (e.key === 'Enter' && batchCode.trim()) {
       e.preventDefault();
       setScanError('');
       try {
-        const item = await itemsAPI.getByBatch(batchCode.trim());
-        if (item) {
-          // Check if item already exists in the list
-          const existingItemIndex = formData.items.findIndex(i => i.item_id === item._id);
+        const batch = await batchesAPI.getByBarcode(batchCode.trim());
+        if (batch) {
+          const model = productModels.find(m => m._id === batch.model_id);
+          // Check if batch already exists in the list
+          const existingIndex = formData.items.findIndex(i => i.batch_id === batch._id);
           
-          if (existingItemIndex >= 0) {
-            // Item exists, increment quantity
+          if (existingIndex >= 0) {
+            // Batch exists, increment quantity
             const updatedItems = [...formData.items];
-            updatedItems[existingItemIndex].quantity += parseInt(quantity);
+            updatedItems[existingIndex].quantity += parseInt(quantity);
             setFormData({
               ...formData,
               items: updatedItems
             });
           } else {
-            // New item, add to list
+            // New batch, add to list
             setFormData({
               ...formData,
               items: [...formData.items, {
-                item_id: item._id,
-                item_name: item.model_name,
-                wattage: item.wattage,
-                batch: item.batch,
+                batch_id: batch._id,
+                batch_code: batch.batch_code,
+                model_name: model ? model.name : 'Unknown',
+                wattage: model ? model.wattage : '',
                 quantity: parseInt(quantity),
                 notes: itemNotes
               }]
@@ -333,41 +352,42 @@ const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
           setItemNotes('');
         }
       } catch (err) {
-        setScanError(getErrorMessage(err, 'Item not found. Please check the batch code.'));
+        setScanError(getErrorMessage(err, 'Batch not found. Please check the batch code.'));
       }
     }
   };
 
   const handleAddItem = () => {
-    if (selectedItem && quantity > 0) {
-      const item = items.find(i => i._id === selectedItem);
-      if (item) {
-        // Check if item already exists in the list
-        const existingItemIndex = formData.items.findIndex(i => i.item_id === item._id);
+    if (selectedBatch && quantity > 0) {
+      const batch = batches.find(b => b._id === selectedBatch);
+      if (batch) {
+        const model = productModels.find(m => m._id === batch.model_id);
+        // Check if batch already exists in the list
+        const existingIndex = formData.items.findIndex(i => i.batch_id === batch._id);
         
-        if (existingItemIndex >= 0) {
-          // Item exists, increment quantity
+        if (existingIndex >= 0) {
+          // Batch exists, increment quantity
           const updatedItems = [...formData.items];
-          updatedItems[existingItemIndex].quantity += parseInt(quantity);
+          updatedItems[existingIndex].quantity += parseInt(quantity);
           setFormData({
             ...formData,
             items: updatedItems
           });
         } else {
-          // New item, add to list
+          // New batch, add to list
           setFormData({
             ...formData,
             items: [...formData.items, { 
-              item_id: item._id, 
-              item_name: item.model_name,
-              wattage: item.wattage,
-              batch: item.batch,
+              batch_id: batch._id, 
+              batch_code: batch.batch_code,
+              model_name: model ? model.name : 'Unknown',
+              wattage: model ? model.wattage : '',
               quantity: parseInt(quantity),
               notes: itemNotes
             }]
           });
         }
-        setSelectedItem('');
+        setSelectedBatch('');
         setQuantity(1);
         setItemNotes('');
       }
@@ -392,7 +412,7 @@ const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
       rep_id: userId,
       merchant_id: formData.merchant_id,
       items: formData.items.map(item => ({
-        item_id: item.item_id,
+        batch_id: item.batch_id,
         quantity: item.quantity,
         notes: item.notes || ''
       })),
@@ -487,14 +507,14 @@ const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
             <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
               <select
                 className="form-control"
-                value={selectedItem}
-                onChange={(e) => setSelectedItem(e.target.value)}
+                value={selectedBatch}
+                onChange={(e) => setSelectedBatch(e.target.value)}
                 style={{ flex: 2 }}
               >
-                <option value="">Select Item</option>
-                {items.map((item) => (
-                  <option key={item._id} value={item._id}>
-                    {item.model_name}-{item.wattage}W-{item.batch}
+                <option value="">Select Batch</option>
+                {batches.map((batch) => (
+                  <option key={batch._id} value={batch._id}>
+                    {getBatchLabel(batch)}
                   </option>
                 ))}
               </select>
@@ -530,9 +550,9 @@ const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Item</th>
+                    <th>Model</th>
                     <th>Wattage</th>
-                    <th>Batch</th>
+                    <th>Batch Code</th>
                     <th>Quantity</th>
                     <th>Notes</th>
                     <th>Action</th>
@@ -541,9 +561,9 @@ const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
                 <tbody>
                   {formData.items.map((item, index) => (
                     <tr key={index}>
-                      <td>{item.item_name}</td>
+                      <td>{item.model_name}</td>
                       <td>{item.wattage}W</td>
-                      <td>{item.batch}</td>
+                      <td>{item.batch_code}</td>
                       <td>{item.quantity}</td>
                       <td>{item.notes || '-'}</td>
                       <td>
@@ -588,16 +608,19 @@ const ClaimModal = ({ merchants, items, userId, onSave, onClose }) => {
   );
 };
 
-const ViewClaimModal = ({ claim, items, merchants, onClose }) => {
+const ViewClaimModal = ({ claim, batches, productModels, productTypes, merchants, onClose }) => {
   const [biltyNumber, setBiltyNumber] = useState(claim?.bilty_number || '');
   const [isUpdatingBilty, setIsUpdatingBilty] = useState(false);
   const [biltyError, setBiltyError] = useState('');
 
   if (!claim) return null;
 
-  const getItemName = (itemId) => {
-    const item = items.find(i => i._id === itemId || i.id === itemId);
-    return item ? `${item.model_name} (${item.item_type})` : `Item ${itemId?.slice(-6) || 'Unknown'}`;
+  const getBatchName = (batchId) => {
+    const batch = batches.find(b => b._id === batchId || b.id === batchId);
+    if (!batch) return `Batch ${batchId?.slice(-6) || 'Unknown'}`;
+    const model = productModels.find(m => m._id === batch.model_id);
+    const typeName = model ? (productTypes.find(t => t._id === model.product_type_id)?.name || '') : '';
+    return `${batch.batch_code} - ${model ? model.name : 'Unknown'}${typeName ? ` (${typeName})` : ''}`;
   };
 
   const getMerchantName = (merchantId) => {
@@ -784,7 +807,7 @@ const ViewClaimModal = ({ claim, items, merchants, onClose }) => {
                 <tbody>
                   {claim.items.map((item, index) => (
                     <tr key={index}>
-                      <td>{getItemName(item.item_id)}</td>
+                      <td>{getBatchName(item.batch_id)}</td>
                       <td>{item.quantity}</td>
                       <td>{item.notes || 'No notes'}</td>
                     </tr>

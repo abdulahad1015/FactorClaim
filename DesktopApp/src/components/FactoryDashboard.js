@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { claimsAPI, usersAPI, merchantsAPI, itemsAPI, getErrorMessage } from '../services/api';
+import { claimsAPI, usersAPI, merchantsAPI, batchesAPI, productModelsAPI, productTypesAPI, getErrorMessage } from '../services/api';
 
 const FactoryDashboard = () => {
   const [claims, setClaims] = useState([]);
   const [users, setUsers] = useState([]);
   const [merchants, setMerchants] = useState([]);
-  const [items, setItems] = useState([]);
+  const [batches, setBatches] = useState([]);
+  const [productModels, setProductModels] = useState([]);
+  const [productTypes, setProductTypes] = useState([]);
   const [selectedClaim, setSelectedClaim] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -41,7 +43,6 @@ const FactoryDashboard = () => {
       // Load supporting data with proper error handling for permissions
       let usersData = [];
       let merchantsData = [];
-      let itemsData = [];
       
       // Try to load users (only Admin has access)
       try {
@@ -50,23 +51,32 @@ const FactoryDashboard = () => {
         console.log('Factory user does not have permission to view users list');
       }
       
-      // Try to load merchants and items (all authenticated users should have access)
+      // Try to load merchants and batches (all authenticated users should have access)
+      let batchesData = [];
+      let modelsData = [];
+      let typesData = [];
       try {
         const results = await Promise.all([
           merchantsAPI.getAll(),
-          itemsAPI.getAll()
+          batchesAPI.getAll(),
+          productModelsAPI.getAll(),
+          productTypesAPI.getAll()
         ]);
         merchantsData = results[0];
-        itemsData = results[1];
+        batchesData = results[1];
+        modelsData = results[2];
+        typesData = results[3];
       } catch (err) {
-        console.error('Error loading merchants/items:', err);
+        console.error('Error loading merchants/batches:', err);
         setError(getErrorMessage(err, 'Failed to load some data'));
       }
       
       setClaims(claimsData);
       setUsers(usersData);
       setMerchants(merchantsData);
-      setItems(itemsData);
+      setBatches(batchesData);
+      setProductModels(modelsData);
+      setProductTypes(typesData);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to load data'));
     } finally {
@@ -115,10 +125,13 @@ const FactoryDashboard = () => {
     return foundMerchant ? foundMerchant.name || foundMerchant.address : `Merchant ${merchantId.slice(-6)}`;
   };
 
-  const getItemName = (itemId) => {
-    if (!itemId) return 'Unknown';
-    const foundItem = items.find(i => i._id === itemId || i.id === itemId);
-    return foundItem ? `${foundItem.model_name}-${foundItem.wattage}W-${foundItem.batch}` : `Item ${itemId.slice(-6)}`;
+  const getBatchName = (batchId) => {
+    if (!batchId) return 'Unknown';
+    const foundBatch = batches.find(b => b._id === batchId || b.id === batchId);
+    if (!foundBatch) return `Batch ${batchId.slice(-6)}`;
+    const model = productModels.find(m => m._id === foundBatch.model_id);
+    const typeName = model ? (productTypes.find(t => t._id === model.product_type_id)?.name || '') : '';
+    return `${foundBatch.batch_code} - ${model ? model.name : 'Unknown'}-${model ? model.wattage : '?'}W${typeName ? ` (${typeName})` : ''}`;
   };
 
   const formatDate = (dateString) => {
@@ -328,7 +341,7 @@ const FactoryDashboard = () => {
           onClose={() => setSelectedClaim(null)}
           getUserName={getUserName}
           getMerchantName={getMerchantName}
-          getItemName={getItemName}
+          getBatchName={getBatchName}
           formatDate={formatDate}
         />
       )}
@@ -336,7 +349,7 @@ const FactoryDashboard = () => {
   );
 };
 
-const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantName, getItemName, formatDate }) => {
+const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantName, getBatchName, formatDate }) => {
   // Scanning verification state - start directly in scan mode for pending claims
   const isPending = !claim.verified && claim.status !== 'Approved';
   const [scanMode, setScanMode] = useState(isPending);
@@ -344,7 +357,7 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
   const [scanError, setScanError] = useState('');
   const [scanSuccess, setScanSuccess] = useState('');
   const [scannedCounts, setScannedCounts] = useState({});
-  // scannedCounts = { item_id: scannedQuantity }
+  // scannedCounts = { batch_id: scannedQuantity }
 
   const getStatusBadgeLocal = (claimObj) => {
     if (claimObj.verified) {
@@ -368,7 +381,7 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
   const totalRequired = (claim.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0);
   const totalScanned = Object.values(scannedCounts).reduce((sum, count) => sum + count, 0);
   const allItemsScanned = claim.items && claim.items.length > 0 && claim.items.every(
-    item => (scannedCounts[item.item_id] || 0) >= (item.quantity || 0)
+    item => (scannedCounts[item.batch_id] || 0) >= (item.quantity || 0)
   );
 
   const verifyButtonRef = useRef(null);
@@ -385,21 +398,21 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
       setScanError('');
       setScanSuccess('');
       try {
-        const item = await itemsAPI.getByBatch(batchCode.trim());
-        if (item) {
-          // Check if this item is part of the claim
-          const claimItem = (claim.items || []).find(ci => ci.item_id === item._id);
+        const batch = await batchesAPI.getByBarcode(batchCode.trim());
+        if (batch) {
+          // Check if this batch is part of the claim
+          const claimItem = (claim.items || []).find(ci => ci.batch_id === batch._id);
           if (!claimItem) {
-            setScanError(`Item "${item.model_name} (${item.batch})" is not part of this claim.`);
+            setScanError(`Batch "${batch.batch_code}" is not part of this claim.`);
             setBatchCode('');
             return;
           }
 
-          const currentScanned = scannedCounts[item._id] || 0;
+          const currentScanned = scannedCounts[batch._id] || 0;
           const requiredQty = claimItem.quantity || 0;
 
           if (currentScanned >= requiredQty) {
-            setScanError(`"${item.model_name}" already fully scanned (${requiredQty}/${requiredQty}).`);
+            setScanError(`"${batch.batch_code}" already fully scanned (${requiredQty}/${requiredQty}).`);
             setBatchCode('');
             return;
           }
@@ -408,19 +421,19 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
           const newCount = currentScanned + 1;
           setScannedCounts(prev => ({
             ...prev,
-            [item._id]: newCount
+            [batch._id]: newCount
           }));
 
           const remaining = requiredQty - newCount;
           if (remaining > 0) {
-            setScanSuccess(`✓ Scanned "${item.model_name}" (${newCount}/${requiredQty}) — ${remaining} remaining`);
+            setScanSuccess(`✓ Scanned "${batch.batch_code}" (${newCount}/${requiredQty}) — ${remaining} remaining`);
           } else {
-            setScanSuccess(`✓ "${item.model_name}" fully scanned! (${newCount}/${requiredQty})`);
+            setScanSuccess(`✓ "${batch.batch_code}" fully scanned! (${newCount}/${requiredQty})`);
           }
           setBatchCode('');
         }
       } catch (err) {
-        setScanError(getErrorMessage(err, 'Item not found. Please check the batch code.'));
+        setScanError(getErrorMessage(err, 'Batch not found. Please check the batch code.'));
         setBatchCode('');
       }
     }
@@ -428,9 +441,9 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
 
   const handleVerifyAfterScan = () => {
     const itemResults = (claim.items || []).map(item => ({
-      item_id: item.item_id,
-      status: (scannedCounts[item.item_id] || 0) > 0 ? 'approved' : 'rejected',
-      scanned_quantity: scannedCounts[item.item_id] || 0,
+      batch_id: item.batch_id,
+      status: (scannedCounts[item.batch_id] || 0) > 0 ? 'approved' : 'rejected',
+      scanned_quantity: scannedCounts[item.batch_id] || 0,
       required_quantity: item.quantity || 0
     }));
     onVerify(claim._id || claim.id, '', itemResults);
@@ -605,7 +618,7 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
               <table className="table" style={{ marginTop: '10px' }}>
                 <thead>
                   <tr>
-                    <th>Item Name</th>
+                    <th>Batch</th>
                     <th>Required</th>
                     <th>Scanned</th>
                     <th>Remaining</th>
@@ -614,13 +627,13 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
                 </thead>
                 <tbody>
                   {(claim.items || []).map((item, index) => {
-                    const scanned = scannedCounts[item.item_id] || 0;
+                    const scanned = scannedCounts[item.batch_id] || 0;
                     const required = item.quantity || 0;
                     const remaining = Math.max(0, required - scanned);
                     const isComplete = scanned >= required;
                     return (
                       <tr key={index} style={{ backgroundColor: isComplete ? '#d4edda' : 'transparent' }}>
-                        <td>{getItemName(item.item_id)}</td>
+                        <td>{getBatchName(item.batch_id)}</td>
                         <td style={{ fontWeight: '600' }}>{required}</td>
                         <td style={{ fontWeight: '600', color: isComplete ? '#28a745' : '#0066cc' }}>{scanned}</td>
                         <td style={{ fontWeight: '600', color: remaining > 0 ? '#dc3545' : '#28a745' }}>{remaining}</td>
@@ -688,7 +701,7 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
                 <table className="table" style={{ marginTop: '10px' }}>
                   <thead>
                     <tr>
-                      <th>Item Name</th>
+                      <th>Batch</th>
                       <th>Claimed</th>
                       <th>Approved</th>
                       <th>Rejected</th>
@@ -703,7 +716,7 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
                       const status = item.verification_status;
                       return (
                         <tr key={index}>
-                          <td>{getItemName(item.item_id)}</td>
+                          <td>{getBatchName(item.batch_id)}</td>
                           <td style={{ fontWeight: '600' }}>{claimed}</td>
                           <td style={{ fontWeight: '600', color: '#28a745' }}>{verified}</td>
                           <td style={{ fontWeight: '600', color: notVerified > 0 ? '#dc3545' : '#28a745' }}>{notVerified}</td>

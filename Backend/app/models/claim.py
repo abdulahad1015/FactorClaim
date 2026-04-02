@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field
 from bson import ObjectId
-from .item import PyObjectId
+from .batch import PyObjectId
 from enum import Enum
 
 
@@ -15,11 +15,11 @@ class ClaimStatus(str, Enum):
 
 
 class ClaimItem(BaseModel):
-    """Item within a claim"""
-    item_id: PyObjectId
+    """Batch within a claim"""
+    batch_id: PyObjectId
     quantity: int = Field(..., gt=0)
     notes: Optional[str] = Field(default="", max_length=200)
-    force_add: bool = Field(default=False)  # Allow forcing items older than 15 months
+    force_add: bool = Field(default=False)  # Allow forcing batches past warranty
 
 
 class Claim(BaseModel):
@@ -49,7 +49,7 @@ class Claim(BaseModel):
                 "merchant_id": "507f1f77bcf86cd799439012",
                 "items": [
                     {
-                        "item_id": "507f1f77bcf86cd799439013",
+                        "batch_id": "507f1f77bcf86cd799439013",
                         "quantity": 10,
                         "notes": "Standard claim",
                         "force_add": False
@@ -93,8 +93,8 @@ class ClaimApprove(BaseModel):
 
 
 class ItemVerificationResult(BaseModel):
-    """Verification result for individual item"""
-    item_id: PyObjectId
+    """Verification result for individual batch item"""
+    batch_id: PyObjectId
     status: str  # "approved" or "rejected"
     scanned_quantity: int = Field(default=0, ge=0)
     required_quantity: int = Field(default=0, ge=0)

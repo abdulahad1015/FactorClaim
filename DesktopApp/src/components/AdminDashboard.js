@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { usersAPI, itemsAPI, claimsAPI, merchantsAPI, getErrorMessage } from '../services/api';
+import { usersAPI, productTypesAPI, productModelsAPI, batchesAPI, claimsAPI, merchantsAPI, getErrorMessage } from '../services/api';
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState('items');
-  const [items, setItems] = useState([]);
+  const [activeTab, setActiveTab] = useState('productTypes');
+  const [productTypes, setProductTypes] = useState([]);
+  const [productModels, setProductModels] = useState([]);
+  const [batches, setBatches] = useState([]);
   const [users, setUsers] = useState([]);
   const [claims, setClaims] = useState([]);
   const [merchants, setMerchants] = useState([]);
@@ -55,26 +57,44 @@ const AdminDashboard = () => {
     setLoading(true);
     setError('');
     try {
-      if (activeTab === 'items') {
-        const data = await itemsAPI.getAll();
-        setItems(data);
+      if (activeTab === 'productTypes') {
+        const data = await productTypesAPI.getAll();
+        setProductTypes(data);
+      } else if (activeTab === 'models') {
+        const [modelsData, ptData] = await Promise.all([
+          productModelsAPI.getAll(),
+          productTypesAPI.getAll()
+        ]);
+        setProductModels(modelsData);
+        setProductTypes(ptData);
+      } else if (activeTab === 'batches') {
+        const [batchesData, modelsData, ptData] = await Promise.all([
+          batchesAPI.getAll(),
+          productModelsAPI.getAll(),
+          productTypesAPI.getAll()
+        ]);
+        setBatches(batchesData);
+        setProductModels(modelsData);
+        setProductTypes(ptData);
       } else if (activeTab === 'users') {
         const data = await usersAPI.getAll();
         setUsers(data);
       } else if (activeTab === 'claims') {
-        // Load all data needed for claims tab
-        const [claimsData, usersData, merchantsData, itemsData] = await Promise.all([
+        const [claimsData, usersData, merchantsData, batchesData, modelsData, ptData] = await Promise.all([
           claimsAPI.getAll(),
           usersAPI.getAll(),
           merchantsAPI.getAll(),
-          itemsAPI.getAll()
+          batchesAPI.getAll(),
+          productModelsAPI.getAll(),
+          productTypesAPI.getAll()
         ]);
         setClaims(claimsData);
         setUsers(usersData);
         setMerchants(merchantsData);
-        setItems(itemsData);
+        setBatches(batchesData);
+        setProductModels(modelsData);
+        setProductTypes(ptData);
       } else if (activeTab === 'statistics') {
-        // Load all data needed for statistics
         const [claimsData, usersData, merchantsData] = await Promise.all([
           claimsAPI.getAll(),
           usersAPI.getAll(),
@@ -102,38 +122,46 @@ const AdminDashboard = () => {
 
   const handleAddItem = () => {
     setCurrentItem(null);
-    setModalType('item');
+    setModalType(activeTab === 'productTypes' ? 'productType' : activeTab === 'models' ? 'model' : 'batch');
     setShowModal(true);
   };
 
   const handleEditItem = (item) => {
     setCurrentItem(item);
-    setModalType('item');
+    setModalType(activeTab === 'productTypes' ? 'productType' : activeTab === 'models' ? 'model' : 'batch');
     setShowModal(true);
   };
 
   const handleDeleteItem = async (id) => {
-    if (window.confirm('Are you sure you want to delete this item?')) {
+    const label = activeTab === 'productTypes' ? 'product type' : activeTab === 'models' ? 'model' : 'batch';
+    if (window.confirm(`Are you sure you want to delete this ${label}?`)) {
       try {
-        await itemsAPI.delete(id);
+        if (activeTab === 'productTypes') await productTypesAPI.delete(id);
+        else if (activeTab === 'models') await productModelsAPI.delete(id);
+        else await batchesAPI.delete(id);
         loadData();
       } catch (err) {
-        setError(getErrorMessage(err, 'Failed to delete item'));
+        setError(getErrorMessage(err, `Failed to delete ${label}`));
       }
     }
   };
 
-  const handleSaveItem = async (itemData) => {
+  const handleSaveItem = async (data) => {
     try {
-      if (currentItem) {
-        await itemsAPI.update(currentItem._id, itemData);
+      if (activeTab === 'productTypes') {
+        if (currentItem) await productTypesAPI.update(currentItem._id, data);
+        else await productTypesAPI.create(data);
+      } else if (activeTab === 'models') {
+        if (currentItem) await productModelsAPI.update(currentItem._id, data);
+        else await productModelsAPI.create(data);
       } else {
-        await itemsAPI.create(itemData);
+        if (currentItem) await batchesAPI.update(currentItem._id, data);
+        else await batchesAPI.create(data);
       }
       setShowModal(false);
       loadData();
     } catch (err) {
-      setError(getErrorMessage(err, 'Failed to save item'));
+      setError(getErrorMessage(err, 'Failed to save'));
     }
   };
 
@@ -209,7 +237,7 @@ const AdminDashboard = () => {
       <div className="dashboard">
         <div className="dashboard-header">
           <h1 className="dashboard-title">Admin Dashboard</h1>
-          <p className="dashboard-subtitle">Manage items, users, and view statistics</p>
+          <p className="dashboard-subtitle">Manage product types, models, batches, users, and view statistics</p>
         </div>
 
         {error && (
@@ -221,10 +249,22 @@ const AdminDashboard = () => {
 
         <div className="dashboard-tabs">
           <button
-            className={`tab-button ${activeTab === 'items' ? 'active' : ''}`}
-            onClick={() => setActiveTab('items')}
+            className={`tab-button ${activeTab === 'productTypes' ? 'active' : ''}`}
+            onClick={() => setActiveTab('productTypes')}
           >
-            Items
+            Product Types
+          </button>
+          <button
+            className={`tab-button ${activeTab === 'models' ? 'active' : ''}`}
+            onClick={() => setActiveTab('models')}
+          >
+            Models
+          </button>
+          <button
+            className={`tab-button ${activeTab === 'batches' ? 'active' : ''}`}
+            onClick={() => setActiveTab('batches')}
+          >
+            Batches
           </button>
           <button
             className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
@@ -250,12 +290,32 @@ const AdminDashboard = () => {
           <div className="loading">Loading...</div>
         ) : (
           <>
-            {activeTab === 'items' && (
-              <ItemsTab
-                items={items}
+            {activeTab === 'productTypes' && (
+              <ProductTypesTab
+                productTypes={productTypes}
                 onAdd={handleAddItem}
                 onEdit={handleEditItem}
                 onDelete={handleDeleteItem}
+              />
+            )}
+            {activeTab === 'models' && (
+              <ModelsTab
+                models={productModels}
+                productTypes={productTypes}
+                onAdd={handleAddItem}
+                onEdit={handleEditItem}
+                onDelete={handleDeleteItem}
+              />
+            )}
+            {activeTab === 'batches' && (
+              <BatchesTab
+                batches={batches}
+                models={productModels}
+                productTypes={productTypes}
+                onAdd={handleAddItem}
+                onEdit={handleEditItem}
+                onDelete={handleDeleteItem}
+                formatDate={formatDate}
               />
             )}
             {activeTab === 'users' && (
@@ -287,10 +347,26 @@ const AdminDashboard = () => {
         )}
       </div>
 
-      {showModal && modalType === 'item' && (
-        <ItemModal
+      {showModal && modalType === 'productType' && (
+        <ProductTypeModal
           item={currentItem}
-          items={items}
+          onSave={handleSaveItem}
+          onClose={() => setShowModal(false)}
+        />
+      )}
+      {showModal && modalType === 'model' && (
+        <ModelModal
+          item={currentItem}
+          productTypes={productTypes}
+          onSave={handleSaveItem}
+          onClose={() => setShowModal(false)}
+        />
+      )}
+      {showModal && modalType === 'batch' && (
+        <BatchModal
+          item={currentItem}
+          models={productModels}
+          productTypes={productTypes}
           onSave={handleSaveItem}
           onClose={() => setShowModal(false)}
         />
@@ -305,7 +381,9 @@ const AdminDashboard = () => {
       {showModal && modalType === 'claim' && (
         <ClaimModal
           claim={currentClaim}
-          items={items}
+          batches={batches}
+          models={productModels}
+          productTypes={productTypes}
           users={users}
           merchants={merchants}
           onClose={() => setShowModal(false)}
@@ -315,177 +393,180 @@ const AdminDashboard = () => {
   );
 };
 
-const ItemsTab = ({ items, onAdd, onEdit, onDelete }) => {
-  const [filters, setFilters] = useState({
-    search: '',
-    itemType: '',
-    supplier: '',
-    minWattage: '',
-    maxWattage: ''
-  });
+const ProductTypesTab = ({ productTypes, onAdd, onEdit, onDelete }) => {
+  return (
+    <div className="card">
+      <div className="action-bar">
+        <h2>Product Types</h2>
+        <button className="btn btn-primary action-bar-btn" onClick={onAdd}>
+          + Add Product Type
+        </button>
+      </div>
+      {productTypes.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-icon">📦</div>
+          <div className="empty-state-text">No product types found</div>
+          <button className="btn btn-primary" onClick={onAdd}>Add Your First Product Type</button>
+        </div>
+      ) : (
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {productTypes.map((pt) => (
+              <tr key={pt._id}>
+                <td>{pt.name}</td>
+                <td>
+                  <span className={`badge ${pt.is_active !== false ? 'badge-success' : 'badge-warning'}`}>
+                    {pt.is_active !== false ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
+                <td className="table-actions">
+                  <button className="btn btn-secondary" onClick={() => onEdit(pt)}>Edit</button>
+                  <button className="btn btn-danger" onClick={() => onDelete(pt._id)}>Delete</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+};
 
-  // Get unique values for filter dropdowns
-  const uniqueItemTypes = [...new Set(items.map(item => item.item_type).filter(Boolean))].sort();
-  const uniqueSuppliers = [...new Set(items.map(item => item.supplier).filter(Boolean))].sort();
-
-  // Filter items based on current filters
-  const filteredItems = items.filter(item => {
-    const matchesSearch = !filters.search || 
-      item.model_name?.toLowerCase().includes(filters.search.toLowerCase()) ||
-      item.batch?.toLowerCase().includes(filters.search.toLowerCase()) ||
-      item.supplier?.toLowerCase().includes(filters.search.toLowerCase());
-    
-    const matchesItemType = !filters.itemType || item.item_type === filters.itemType;
-    const matchesSupplier = !filters.supplier || item.supplier === filters.supplier;
-    
-    const matchesMinWattage = !filters.minWattage || item.wattage >= parseInt(filters.minWattage);
-    const matchesMaxWattage = !filters.maxWattage || item.wattage <= parseInt(filters.maxWattage);
-
-    return matchesSearch && matchesItemType && matchesSupplier && matchesMinWattage && matchesMaxWattage;
-  });
-
-  const clearFilters = () => {
-    setFilters({
-      search: '',
-      itemType: '',
-      supplier: '',
-      minWattage: '',
-      maxWattage: ''
-    });
+const ModelsTab = ({ models, productTypes, onAdd, onEdit, onDelete }) => {
+  const getProductTypeName = (ptId) => {
+    const pt = productTypes.find(p => p._id === ptId || p.id === ptId);
+    return pt ? pt.name : 'Unknown';
   };
-
-  const hasActiveFilters = Object.values(filters).some(value => value !== '');
 
   return (
     <div className="card">
       <div className="action-bar">
-        <h2>Items Management</h2>
+        <h2>Models</h2>
         <button className="btn btn-primary action-bar-btn" onClick={onAdd}>
-          + Add Item
+          + Add Model
         </button>
       </div>
-
-      {/* Filters Section */}
-      <div className="filter-section">
-        <h4>Filters</h4>
-        
-        <div className="filter-grid">
-          <div>
-            <label className="form-label">Search</label>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Search model, batch, supplier..."
-              value={filters.search}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="form-label">Item Type</label>
-            <select
-              className="form-control"
-              value={filters.itemType}
-              onChange={(e) => setFilters({ ...filters, itemType: e.target.value })}
-            >
-              <option value="">All Types</option>
-              {uniqueItemTypes.map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="form-label">Supplier</label>
-            <select
-              className="form-control"
-              value={filters.supplier}
-              onChange={(e) => setFilters({ ...filters, supplier: e.target.value })}
-            >
-              <option value="">All Suppliers</option>
-              {uniqueSuppliers.map(supplier => (
-                <option key={supplier} value={supplier}>{supplier}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="form-label">Min Wattage</label>
-            <input
-              type="number"
-              className="form-control"
-              placeholder="Min W"
-              value={filters.minWattage}
-              onChange={(e) => setFilters({ ...filters, minWattage: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="form-label">Max Wattage</label>
-            <input
-              type="number"
-              className="form-control"
-              placeholder="Max W"
-              value={filters.maxWattage}
-              onChange={(e) => setFilters({ ...filters, maxWattage: e.target.value })}
-            />
-          </div>
-        </div>
-
-        <div className="filter-bar">
-          <span>
-            Showing {filteredItems.length} of {items.length} items
-          </span>
-          {hasActiveFilters && (
-            <button 
-              className="btn btn-secondary btn-sm" 
-              onClick={clearFilters}
-            >
-              Clear Filters
-            </button>
-          )}
-        </div>
-      </div>
-
-      {filteredItems.length === 0 ? (
+      {models.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon">📦</div>
-          <div className="empty-state-text">
-            {hasActiveFilters ? 'No items match the current filters' : 'No items found'}
-          </div>
-          {!hasActiveFilters ? (
-            <button className="btn btn-primary" onClick={onAdd}>Add Your First Item</button>
-          ) : (
-            <button className="btn btn-secondary" onClick={clearFilters}>Clear Filters</button>
-          )}
+          <div className="empty-state-text">No models found</div>
+          <button className="btn btn-primary" onClick={onAdd}>Add Your First Model</button>
         </div>
       ) : (
-          <table className="table">
+        <table className="table">
           <thead>
             <tr>
-              <th>Model Name</th>
-              <th>Item Type</th>
-              <th>Batch</th>
+              <th>Name</th>
+              <th>Product Type</th>
               <th>Wattage</th>
               <th>Supplier</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filteredItems.map((item) => (
-              <tr key={item._id}>
-                <td>{item.model_name}</td>
-                <td>{item.item_type}</td>
-                <td>{item.batch}</td>
-                <td>{item.wattage}W</td>
-                <td>{item.supplier}</td>
+            {models.map((model) => (
+              <tr key={model._id}>
+                <td>{model.name}</td>
+                <td>{getProductTypeName(model.product_type_id)}</td>
+                <td>{model.wattage}W</td>
+                <td>{model.supplier}</td>
                 <td className="table-actions">
-                  <button className="btn btn-secondary" onClick={() => onEdit(item)}>
-                    Edit
-                  </button>
-                  <button className="btn btn-danger" onClick={() => onDelete(item._id)}>
-                    Delete
-                  </button>
+                  <button className="btn btn-secondary" onClick={() => onEdit(model)}>Edit</button>
+                  <button className="btn btn-danger" onClick={() => onDelete(model._id)}>Delete</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+};
+
+const BatchesTab = ({ batches, models, productTypes, onAdd, onEdit, onDelete, formatDate }) => {
+  const [filters, setFilters] = useState({ search: '', modelId: '' });
+
+  const getModelName = (modelId) => {
+    const model = models.find(m => m._id === modelId || m.id === modelId);
+    if (!model) return 'Unknown';
+    const pt = productTypes.find(p => p._id === model.product_type_id || p.id === model.product_type_id);
+    return `${model.name} (${pt ? pt.name : ''} - ${model.wattage}W)`;
+  };
+
+  const filteredBatches = batches.filter(b => {
+    const matchesSearch = !filters.search ||
+      b.batch_code?.toLowerCase().includes(filters.search.toLowerCase()) ||
+      b.colour?.toLowerCase().includes(filters.search.toLowerCase()) ||
+      b.supplier?.toLowerCase().includes(filters.search.toLowerCase());
+    const matchesModel = !filters.modelId || b.model_id === filters.modelId;
+    return matchesSearch && matchesModel;
+  });
+
+  return (
+    <div className="card">
+      <div className="action-bar">
+        <h2>Batches</h2>
+        <button className="btn btn-primary action-bar-btn" onClick={onAdd}>
+          + Add Batch
+        </button>
+      </div>
+      <div className="filter-section">
+        <div className="filter-grid">
+          <div>
+            <label className="form-label">Search</label>
+            <input type="text" className="form-control" placeholder="Search batch code, colour, supplier..."
+              value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} />
+          </div>
+          <div>
+            <label className="form-label">Model</label>
+            <select className="form-control" value={filters.modelId} onChange={(e) => setFilters({ ...filters, modelId: e.target.value })}>
+              <option value="">All Models</option>
+              {models.map(m => <option key={m._id} value={m._id}>{m.name} - {m.wattage}W</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="filter-bar">
+          <span>Showing {filteredBatches.length} of {batches.length} batches</span>
+        </div>
+      </div>
+      {filteredBatches.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-icon">📦</div>
+          <div className="empty-state-text">No batches found</div>
+          <button className="btn btn-primary" onClick={onAdd}>Add Your First Batch</button>
+        </div>
+      ) : (
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Batch Code</th>
+              <th>Model</th>
+              <th>Colour</th>
+              <th>Quantity</th>
+              <th>Production Date</th>
+              <th>Warranty</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredBatches.map((batch) => (
+              <tr key={batch._id}>
+                <td style={{ fontFamily: 'monospace' }}>{batch.batch_code}</td>
+                <td>{getModelName(batch.model_id)}</td>
+                <td>{batch.colour || '-'}</td>
+                <td>{batch.quantity}</td>
+                <td>{formatDate(batch.production_date)}</td>
+                <td>{batch.warranty_period} months</td>
+                <td className="table-actions">
+                  <button className="btn btn-secondary" onClick={() => onEdit(batch)}>Edit</button>
+                  <button className="btn btn-danger" onClick={() => onDelete(batch._id)}>Delete</button>
                 </td>
               </tr>
             ))}
@@ -602,14 +683,45 @@ const StatisticsTab = ({ statistics, claims, formatDate, getUserName }) => {
   );
 };
 
-const ItemModal = ({ item, items, onSave, onClose }) => {
-  const [isCustomModelName, setIsCustomModelName] = useState(false);
+const ProductTypeModal = ({ item, onSave, onClose }) => {
   const [formData, setFormData] = useState({
-    model_name: item?.model_name || '',
-    item_type: item?.item_type || 'LED Bulb',
-    batch: item?.batch || '',
-    production_date: item?.production_date ? item.production_date.split('T')[0] : '',
+    name: item?.name || '',
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave({ name: formData.name });
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="modal-title">{item ? 'Edit Product Type' : 'Add Product Type'}</h2>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">Name *</label>
+            <input type="text" className="form-control" value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })} required
+              placeholder="e.g., LED Bulb, Floodlight, Panel Light" />
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const ModelModal = ({ item, productTypes, onSave, onClose }) => {
+  const [formData, setFormData] = useState({
+    name: item?.name || '',
     wattage: item?.wattage || '',
+    product_type_id: item?.product_type_id || '',
     supplier: item?.supplier || '',
     contractor: item?.contractor || '',
     notes: item?.notes || '',
@@ -617,27 +729,16 @@ const ItemModal = ({ item, items, onSave, onClose }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
-    // Prepare data for submission
     const dataToSend = {
-      model_name: formData.model_name,
-      item_type: formData.item_type,
-      batch: formData.batch,
-      wattage: parseInt(formData.wattage),
+      name: formData.name,
+      wattage: parseFloat(formData.wattage),
+      product_type_id: formData.product_type_id,
       supplier: formData.supplier,
       notes: formData.notes || '',
     };
-    
-    // Add production_date if provided (convert to ISO datetime)
-    if (formData.production_date) {
-      dataToSend.production_date = new Date(formData.production_date).toISOString();
-    }
-    
-    // Add contractor only if provided (must be at least 1 character)
     if (formData.contractor && formData.contractor.trim().length > 0) {
       dataToSend.contractor = formData.contractor;
     }
-    
     onSave(dataToSend);
   };
 
@@ -645,149 +746,159 @@ const ItemModal = ({ item, items, onSave, onClose }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="modal-title">{item ? 'Edit Item' : 'Add Item'}</h2>
+          <h2 className="modal-title">{item ? 'Edit Model' : 'Add Model'}</h2>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Model Name *</label>
-            {!isCustomModelName ? (
-              <div>
-                <select
-                  className="form-control"
-                  value={formData.model_name}
-                  onChange={(e) => {
-                    if (e.target.value === '__CREATE_NEW__') {
-                      setIsCustomModelName(true);
-                      setFormData({ ...formData, model_name: '' });
-                    } else {
-                      setFormData({ ...formData, model_name: e.target.value });
-                    }
-                  }}
-                  required
-                >
-                  <option value="">Select existing or create new</option>
-                  {[...new Set(items.map(i => i.model_name).filter(Boolean))]
-                    .sort()
-                    .map(modelName => (
-                      <option key={modelName} value={modelName}>{modelName}</option>
-                    ))
-                  }
-                  <option value="__CREATE_NEW__">+ Create New Model Name</option>
-                </select>
-                <small style={{ color: '#666', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                  Choose from existing model names or create a new one
-                </small>
-              </div>
-            ) : (
-              <div>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={formData.model_name}
-                  onChange={(e) => setFormData({ ...formData, model_name: e.target.value })}
-                  required
-                  placeholder="Enter new model name (e.g., LED-100W-2024)"
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => {
-                    setIsCustomModelName(false);
-                    setFormData({ ...formData, model_name: '' });
-                  }}
-                  style={{ marginTop: '8px' }}
-                >
-                  ← Back to Selection
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="form-group">
-            <label className="form-label">Item Type *</label>
-            <select
-              className="form-control"
-              value={formData.item_type}
-              onChange={(e) => setFormData({ ...formData, item_type: e.target.value })}
-              required
-            >
-              <option value="LED Bulb">LED Bulb</option>
-              <option value="CFL Bulb">CFL Bulb</option>
-              <option value="Incandescent Bulb">Incandescent Bulb</option>
-              <option value="Halogen Bulb">Halogen Bulb</option>
-              <option value="Tube Light">Tube Light</option>
-              <option value="Panel Light">Panel Light</option>
-              <option value="Street Light">Street Light</option>
-              <option value="Flood Light">Flood Light</option>
-              <option value="Emergency Light">Emergency Light</option>
-              <option value="Other">Other</option>
+            <label className="form-label">Product Type *</label>
+            <select className="form-control" value={formData.product_type_id}
+              onChange={(e) => setFormData({ ...formData, product_type_id: e.target.value })} required>
+              <option value="">Select Product Type</option>
+              {productTypes.filter(pt => pt.is_active !== false).map(pt => (
+                <option key={pt._id} value={pt._id}>{pt.name}</option>
+              ))}
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Batch *</label>
-            <input
-              type="text"
-              className="form-control"
-              value={formData.batch}
-              onChange={(e) => setFormData({ ...formData, batch: e.target.value })}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Production Date</label>
-            <input
-              type="date"
-              className="form-control"
-              value={formData.production_date}
-              onChange={(e) => setFormData({ ...formData, production_date: e.target.value })}
-            />
+            <label className="form-label">Model Name *</label>
+            <input type="text" className="form-control" value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })} required
+              placeholder="e.g., LED-100W-2024" />
           </div>
           <div className="form-group">
             <label className="form-label">Wattage *</label>
-            <input
-              type="number"
-              className="form-control"
-              value={formData.wattage}
-              onChange={(e) => setFormData({ ...formData, wattage: e.target.value })}
-              required
-            />
+            <input type="number" className="form-control" value={formData.wattage}
+              onChange={(e) => setFormData({ ...formData, wattage: e.target.value })} required />
           </div>
           <div className="form-group">
             <label className="form-label">Supplier *</label>
-            <input
-              type="text"
-              className="form-control"
-              value={formData.supplier}
-              onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-              required
-            />
+            <input type="text" className="form-control" value={formData.supplier}
+              onChange={(e) => setFormData({ ...formData, supplier: e.target.value })} required />
           </div>
           <div className="form-group">
             <label className="form-label">Contractor</label>
-            <input
-              type="text"
-              className="form-control"
-              value={formData.contractor}
-              onChange={(e) => setFormData({ ...formData, contractor: e.target.value })}
-            />
+            <input type="text" className="form-control" value={formData.contractor}
+              onChange={(e) => setFormData({ ...formData, contractor: e.target.value })} />
           </div>
           <div className="form-group">
             <label className="form-label">Notes</label>
-            <textarea
-              className="form-control"
-              rows="3"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-            />
+            <textarea className="form-control" rows="3" value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })} />
           </div>
           <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary">
-              Save
-            </button>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const BatchModal = ({ item, models, productTypes, onSave, onClose }) => {
+  const [formData, setFormData] = useState({
+    batch_code: item?.batch_code || '',
+    model_id: item?.model_id || '',
+    colour: item?.colour || '',
+    quantity: item?.quantity || '',
+    production_date: item?.production_date ? item.production_date.split('T')[0] : '',
+    warranty_period: item?.warranty_period || 12,
+    supplier: item?.supplier || '',
+    contractor: item?.contractor || '',
+    notes: item?.notes || '',
+  });
+
+  const getModelLabel = (model) => {
+    const pt = productTypes.find(p => p._id === model.product_type_id || p.id === model.product_type_id);
+    return `${model.name} - ${model.wattage}W (${pt ? pt.name : 'Unknown'})`;
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const dataToSend = {
+      batch_code: formData.batch_code,
+      model_id: formData.model_id,
+      colour: formData.colour || '',
+      quantity: parseInt(formData.quantity),
+      warranty_period: parseInt(formData.warranty_period),
+      notes: formData.notes || '',
+    };
+    if (formData.production_date) {
+      dataToSend.production_date = new Date(formData.production_date).toISOString();
+    }
+    if (formData.supplier && formData.supplier.trim().length > 0) {
+      dataToSend.supplier = formData.supplier;
+    }
+    if (formData.contractor && formData.contractor.trim().length > 0) {
+      dataToSend.contractor = formData.contractor;
+    }
+    onSave(dataToSend);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="modal-title">{item ? 'Edit Batch' : 'Add Batch'}</h2>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">Model *</label>
+            <select className="form-control" value={formData.model_id}
+              onChange={(e) => setFormData({ ...formData, model_id: e.target.value })} required>
+              <option value="">Select Model</option>
+              {models.filter(m => m.is_active !== false).map(m => (
+                <option key={m._id} value={m._id}>{getModelLabel(m)}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Batch Code *</label>
+            <input type="text" className="form-control" value={formData.batch_code}
+              onChange={(e) => setFormData({ ...formData, batch_code: e.target.value })} required
+              placeholder="e.g., B2024001" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Colour</label>
+            <input type="text" className="form-control" value={formData.colour}
+              onChange={(e) => setFormData({ ...formData, colour: e.target.value })}
+              placeholder="e.g., Warm White, Cool White" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Quantity *</label>
+            <input type="number" className="form-control" value={formData.quantity}
+              onChange={(e) => setFormData({ ...formData, quantity: e.target.value })} required min="1" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Production Date *</label>
+            <input type="date" className="form-control" value={formData.production_date}
+              onChange={(e) => setFormData({ ...formData, production_date: e.target.value })} required />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Warranty Period (months) *</label>
+            <input type="number" className="form-control" value={formData.warranty_period}
+              onChange={(e) => setFormData({ ...formData, warranty_period: e.target.value })} required min="1" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Supplier</label>
+            <input type="text" className="form-control" value={formData.supplier}
+              onChange={(e) => setFormData({ ...formData, supplier: e.target.value })} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Contractor</label>
+            <input type="text" className="form-control" value={formData.contractor}
+              onChange={(e) => setFormData({ ...formData, contractor: e.target.value })} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Notes</label>
+            <textarea className="form-control" rows="3" value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })} />
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary">Save</button>
           </div>
         </form>
       </div>
@@ -968,12 +1079,15 @@ const ClaimsTab = ({ claims, onView, formatDate, getUserName, getMerchantName })
   );
 };
 
-const ClaimModal = ({ claim, items, users, merchants, onClose }) => {
+const ClaimModal = ({ claim, batches, models, productTypes, users, merchants, onClose }) => {
   if (!claim) return null;
 
-  const getItemName = (itemId) => {
-    const item = items.find(i => i._id === itemId || i.id === itemId);
-    return item ? `${item.model_name} (${item.item_type})` : `Item ${itemId?.slice(-6) || 'Unknown'}`;
+  const getBatchName = (batchId) => {
+    const batch = batches.find(b => b._id === batchId || b.id === batchId);
+    if (!batch) return `Batch ${batchId?.slice(-6) || 'Unknown'}`;
+    const model = models.find(m => m._id === batch.model_id || m.id === batch.model_id);
+    const pt = model ? productTypes.find(p => p._id === model.product_type_id || p.id === model.product_type_id) : null;
+    return `${pt ? pt.name + ' > ' : ''}${model ? model.name : 'Unknown'} - ${batch.batch_code}`;
   };
 
   const getUserName = (userId) => {
@@ -1114,7 +1228,7 @@ const ClaimModal = ({ claim, items, users, merchants, onClose }) => {
                 <tbody>
                   {claim.items.map((item, index) => (
                     <tr key={index}>
-                      <td>{getItemName(item.item_id)}</td>
+                      <td>{getBatchName(item.batch_id)}</td>
                       <td>{item.quantity}</td>
                       <td>{item.notes || 'No notes'}</td>
                     </tr>
