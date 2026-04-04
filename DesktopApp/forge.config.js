@@ -9,6 +9,38 @@ module.exports = {
       './build',
       './app-update.yml'
     ],
+    // Only include files needed at runtime; build/ is already in extraResource
+    ignore: (path) => {
+      if (!path) return false;
+      // Always include package.json and forge.config.js (root)
+      if (path === '/package.json' || path === '/forge.config.js') return false;
+      // Include electron main + preload
+      if (path === '/public' || path === '/public/electron.js' || path === '/public/preload.js' || path === '/public/favicon.ico') return false;
+      // Include production node_modules (electron-updater, electron-squirrel-startup + deps)
+      if (path === '/node_modules') return false;
+      if (path.startsWith('/node_modules/electron-updater') ||
+          path.startsWith('/node_modules/electron-squirrel-startup') ||
+          // electron-updater dependencies
+          path.startsWith('/node_modules/builder-util-runtime') ||
+          path.startsWith('/node_modules/debug') ||
+          path.startsWith('/node_modules/ms') ||
+          path.startsWith('/node_modules/sax') ||
+          path.startsWith('/node_modules/lazy-val') ||
+          path.startsWith('/node_modules/lodash.isequal') ||
+          path.startsWith('/node_modules/lodash.escaperegexp') ||
+          path.startsWith('/node_modules/semver') ||
+          path.startsWith('/node_modules/tiny-typed-emitter') ||
+          path.startsWith('/node_modules/js-yaml') ||
+          path.startsWith('/node_modules/argparse') ||
+          path.startsWith('/node_modules/fs-extra') ||
+          path.startsWith('/node_modules/graceful-fs') ||
+          path.startsWith('/node_modules/jsonfile') ||
+          path.startsWith('/node_modules/universalify')) {
+        return false;
+      }
+      // Ignore everything else
+      return true;
+    },
   },
   rebuildConfig: {},
   makers: [
