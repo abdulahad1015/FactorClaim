@@ -3,7 +3,7 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from bson import ObjectId
 from enum import Enum
-from .item import PyObjectId
+from .batch import PyObjectId
 
 
 class UserType(str, Enum):

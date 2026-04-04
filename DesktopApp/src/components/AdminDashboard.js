@@ -722,24 +722,17 @@ const ModelModal = ({ item, productTypes, onSave, onClose }) => {
     name: item?.name || '',
     wattage: item?.wattage || '',
     product_type_id: item?.product_type_id || '',
-    supplier: item?.supplier || '',
-    contractor: item?.contractor || '',
     notes: item?.notes || '',
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const dataToSend = {
+    onSave({
       name: formData.name,
       wattage: parseFloat(formData.wattage),
       product_type_id: formData.product_type_id,
-      supplier: formData.supplier,
       notes: formData.notes || '',
-    };
-    if (formData.contractor && formData.contractor.trim().length > 0) {
-      dataToSend.contractor = formData.contractor;
-    }
-    onSave(dataToSend);
+    });
   };
 
   return (
@@ -770,16 +763,6 @@ const ModelModal = ({ item, productTypes, onSave, onClose }) => {
             <label className="form-label">Wattage *</label>
             <input type="number" className="form-control" value={formData.wattage}
               onChange={(e) => setFormData({ ...formData, wattage: e.target.value })} required />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Supplier *</label>
-            <input type="text" className="form-control" value={formData.supplier}
-              onChange={(e) => setFormData({ ...formData, supplier: e.target.value })} required />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Contractor</label>
-            <input type="text" className="form-control" value={formData.contractor}
-              onChange={(e) => setFormData({ ...formData, contractor: e.target.value })} />
           </div>
           <div className="form-group">
             <label className="form-label">Notes</label>
@@ -862,9 +845,13 @@ const BatchModal = ({ item, models, productTypes, onSave, onClose }) => {
           </div>
           <div className="form-group">
             <label className="form-label">Colour</label>
-            <input type="text" className="form-control" value={formData.colour}
-              onChange={(e) => setFormData({ ...formData, colour: e.target.value })}
-              placeholder="e.g., Warm White, Cool White" />
+            <select className="form-control" value={formData.colour}
+              onChange={(e) => setFormData({ ...formData, colour: e.target.value })}>
+              <option value="">Select Colour</option>
+              <option value="3000k">3000k</option>
+              <option value="4000k">4000k</option>
+              <option value="6500k">6500k</option>
+            </select>
           </div>
           <div className="form-group">
             <label className="form-label">Quantity *</label>

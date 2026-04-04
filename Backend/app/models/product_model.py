@@ -38,8 +38,6 @@ class ProductModel(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     wattage: float = Field(..., gt=0)
     product_type_id: PyObjectId = Field(...)
-    supplier: str = Field(..., min_length=1, max_length=100)
-    contractor: Optional[str] = Field(default="", max_length=100)
     notes: Optional[str] = Field(default="", max_length=500)
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -55,8 +53,6 @@ class ProductModel(BaseModel):
                 "name": "LED-100W-2024",
                 "wattage": 100.0,
                 "product_type_id": "507f1f77bcf86cd799439011",
-                "supplier": "LightTech Corp",
-                "contractor": "ElectroSupply Ltd",
                 "notes": "Energy efficient model"
             }
         }
@@ -67,8 +63,6 @@ class ProductModelCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     wattage: float = Field(..., gt=0)
     product_type_id: PyObjectId = Field(...)
-    supplier: str = Field(..., min_length=1, max_length=100)
-    contractor: Optional[str] = Field(default="", max_length=100)
     notes: Optional[str] = Field(default="", max_length=500)
 
     class Config:
@@ -80,8 +74,6 @@ class ProductModelUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     wattage: Optional[float] = Field(None, gt=0)
     product_type_id: Optional[PyObjectId] = None
-    supplier: Optional[str] = Field(None, min_length=1, max_length=100)
-    contractor: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = Field(None, max_length=500)
     is_active: Optional[bool] = None
     updated_at: datetime = Field(default_factory=datetime.utcnow)
