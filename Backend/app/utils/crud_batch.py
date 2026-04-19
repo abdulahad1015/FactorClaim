@@ -15,6 +15,8 @@ class CRUDBatch(CRUDBase):
         batch_data = batch_in.dict()
         if "model_id" in batch_data:
             batch_data["model_id"] = ObjectId(batch_data["model_id"])
+        if "supervisor_id" in batch_data and batch_data["supervisor_id"]:
+            batch_data["supervisor_id"] = ObjectId(batch_data["supervisor_id"])
         return await self.create(batch_data)
     
     async def get_batch(self, batch_id: str) -> Optional[Dict[str, Any]]:
@@ -64,6 +66,8 @@ class CRUDBatch(CRUDBase):
         batch_data = batch_in.dict(exclude_unset=True)
         if "model_id" in batch_data and batch_data["model_id"]:
             batch_data["model_id"] = ObjectId(batch_data["model_id"])
+        if "supervisor_id" in batch_data and batch_data["supervisor_id"]:
+            batch_data["supervisor_id"] = ObjectId(batch_data["supervisor_id"])
         return await self.update(batch_id, batch_data)
     
     async def delete_batch(self, batch_id: str) -> bool:

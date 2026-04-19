@@ -25,13 +25,13 @@ const AdminDashboard = () => {
   const getUserName = (userId) => {
     if (!userId) return 'Unknown';
     const foundUser = users.find(u => u.id === userId || u._id === userId);
-    return foundUser ? foundUser.name : `User ${userId.slice(-6)}`;
+    return foundUser ? foundUser.name : `User ${String(userId).slice(-6)}`;
   };
 
   const getMerchantName = (merchantId) => {
     if (!merchantId) return 'Unknown';
     const foundMerchant = merchants.find(m => m._id === merchantId || m.id === merchantId);
-    return foundMerchant ? foundMerchant.name || foundMerchant.address : `Merchant ${merchantId.slice(-6)}`;
+    return foundMerchant ? foundMerchant.name || foundMerchant.address : `Merchant ${String(merchantId).slice(-6)}`;
   };
 
   const formatDate = (dateString) => {
@@ -367,6 +367,7 @@ const AdminDashboard = () => {
           item={currentItem}
           models={productModels}
           productTypes={productTypes}
+          users={users}
           onSave={handleSaveItem}
           onClose={() => setShowModal(false)}
         />
@@ -466,7 +467,6 @@ const ModelsTab = ({ models, productTypes, onAdd, onEdit, onDelete }) => {
               <th>Name</th>
               <th>Product Type</th>
               <th>Wattage</th>
-              <th>Supplier</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -476,7 +476,6 @@ const ModelsTab = ({ models, productTypes, onAdd, onEdit, onDelete }) => {
                 <td>{model.name}</td>
                 <td>{getProductTypeName(model.product_type_id)}</td>
                 <td>{model.wattage}W</td>
-                <td>{model.supplier}</td>
                 <td className="table-actions">
                   <button className="btn btn-secondary" onClick={() => onEdit(model)}>Edit</button>
                   <button className="btn btn-danger" onClick={() => onDelete(model._id)}>Delete</button>
@@ -779,7 +778,7 @@ const ModelModal = ({ item, productTypes, onSave, onClose }) => {
   );
 };
 
-const BatchModal = ({ item, models, productTypes, onSave, onClose }) => {
+const BatchModal = ({ item, models, productTypes, users, onSave, onClose }) => {
   const [formData, setFormData] = useState({
     batch_code: item?.batch_code || '',
     model_id: item?.model_id || '',
@@ -789,6 +788,7 @@ const BatchModal = ({ item, models, productTypes, onSave, onClose }) => {
     warranty_period: item?.warranty_period || 12,
     supplier: item?.supplier || '',
     contractor: item?.contractor || '',
+    supervisor_id: item?.supervisor_id || '',
     notes: item?.notes || '',
   });
 
@@ -815,6 +815,9 @@ const BatchModal = ({ item, models, productTypes, onSave, onClose }) => {
     }
     if (formData.contractor && formData.contractor.trim().length > 0) {
       dataToSend.contractor = formData.contractor;
+    }
+    if (formData.supervisor_id) {
+      dataToSend.supervisor_id = formData.supervisor_id;
     }
     onSave(dataToSend);
   };
@@ -877,6 +880,16 @@ const BatchModal = ({ item, models, productTypes, onSave, onClose }) => {
             <label className="form-label">Contractor</label>
             <input type="text" className="form-control" value={formData.contractor}
               onChange={(e) => setFormData({ ...formData, contractor: e.target.value })} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Supervisor</label>
+            <select className="form-control" value={formData.supervisor_id}
+              onChange={(e) => setFormData({ ...formData, supervisor_id: e.target.value })}>
+              <option value="">Select Supervisor</option>
+              {(users || []).filter(u => u.is_active !== false).map(u => (
+                <option key={u._id || u.id} value={u._id || u.id}>{u.name}</option>
+              ))}
+            </select>
           </div>
           <div className="form-group">
             <label className="form-label">Notes</label>
@@ -1071,7 +1084,7 @@ const ClaimModal = ({ claim, batches, models, productTypes, users, merchants, on
 
   const getBatchName = (batchId) => {
     const batch = batches.find(b => b._id === batchId || b.id === batchId);
-    if (!batch) return `Batch ${batchId?.slice(-6) || 'Unknown'}`;
+    if (!batch) return `Batch ${batchId ? String(batchId).slice(-6) : 'Unknown'}`;
     const model = models.find(m => m._id === batch.model_id || m.id === batch.model_id);
     const pt = model ? productTypes.find(p => p._id === model.product_type_id || p.id === model.product_type_id) : null;
     return `${pt ? pt.name + ' > ' : ''}${model ? model.name : 'Unknown'} - ${batch.batch_code}`;
@@ -1080,13 +1093,13 @@ const ClaimModal = ({ claim, batches, models, productTypes, users, merchants, on
   const getUserName = (userId) => {
     if (!userId) return 'Unknown';
     const user = users.find(u => u._id === userId || u.id === userId);
-    return user ? user.name : `User ${userId.slice(-6)}`;
+    return user ? user.name : `User ${String(userId).slice(-6)}`;
   };
 
   const getMerchantName = (merchantId) => {
     if (!merchantId) return 'Unknown';
     const merchant = merchants.find(m => m._id === merchantId || m.id === merchantId);
-    return merchant ? (merchant.name || merchant.address) : `Merchant ${merchantId.slice(-6)}`;
+    return merchant ? (merchant.name || merchant.address) : `Merchant ${String(merchantId).slice(-6)}`;
   };
 
   const formatDate = (dateString) => {

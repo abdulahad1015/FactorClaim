@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { merchantsAPI, claimsAPI, usersAPI, batchesAPI, productModelsAPI, productTypesAPI, getErrorMessage } from '../services/api';
-import pakistanLocations from '../data/pakistanLocations';
+import { merchantsAPI, claimsAPI, usersAPI, batchesAPI, productModelsAPI, productTypesAPI, locationsAPI, getErrorMessage } from '../services/api';
 
 const WarehouseDashboard = () => {
   const [activeTab, setActiveTab] = useState('merchants');
@@ -44,14 +43,20 @@ const WarehouseDashboard = () => {
         setProductModels(modelsData);
         setProductTypes(typesData);
       } else if (activeTab === 'statistics') {
-        const [claimsData, usersData, merchantsData] = await Promise.all([
+        const [claimsData, usersData, merchantsData, batchesData, modelsData, typesData] = await Promise.all([
           claimsAPI.getAll(),
           usersAPI.getAll(),
-          merchantsAPI.getAll()
+          merchantsAPI.getAll(),
+          batchesAPI.getAll(),
+          productModelsAPI.getAll(),
+          productTypesAPI.getAll()
         ]);
         setClaims(claimsData);
         setUsers(usersData);
         setMerchants(merchantsData);
+        setBatches(batchesData);
+        setProductModels(modelsData);
+        setProductTypes(typesData);
       }
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to load data'));
@@ -91,13 +96,13 @@ const WarehouseDashboard = () => {
   const getUserName = (userId) => {
     if (!userId) return 'Unknown';
     const foundUser = users.find(u => u.id === userId || u._id === userId);
-    return foundUser ? foundUser.name : `User ${userId.slice(-6)}`;
+    return foundUser ? foundUser.name : `User ${String(userId).slice(-6)}`;
   };
 
   const getMerchantName = (merchantId) => {
     if (!merchantId) return 'Unknown';
     const merchant = merchants.find(m => m._id === merchantId || m.id === merchantId);
-    return merchant ? (merchant.name || merchant.address) : `Merchant ${merchantId.slice(-6)}`;
+    return merchant ? (merchant.name || merchant.address) : `Merchant ${String(merchantId).slice(-6)}`;
   };
 
   // Merchant handlers
@@ -219,6 +224,9 @@ const WarehouseDashboard = () => {
                 claims={claims}
                 users={users}
                 merchants={merchants}
+                batches={batches}
+                productModels={productModels}
+                productTypes={productTypes}
                 getUserName={getUserName}
                 getMerchantName={getMerchantName}
               />
@@ -358,7 +366,7 @@ const ClaimsTab = ({ claims, users, merchants, onView, formatDate, getUserName, 
   );
 };
 
-const StatisticsTab = ({ claims, users, merchants, getUserName, getMerchantName }) => {
+const StatisticsTab = ({ claims, users, merchants, batches, productModels, productTypes, getUserName, getMerchantName }) => {
   const totalClaims = claims.length;
   const verifiedClaims = claims.filter(c => c.verified).length;
   const pendingClaims = totalClaims - verifiedClaims;
@@ -377,6 +385,72 @@ const StatisticsTab = ({ claims, users, merchants, getUserName, getMerchantName 
   claims.forEach(claim => {
     const merchantName = getMerchantName(claim.merchant_id);
     claimsByMerchant[merchantName] = (claimsByMerchant[merchantName] || 0) + 1;
+  });
+
+  // Claims by Model (group by model name + wattage)
+  const getModelName = (modelId) => {
+    const model = (productModels || []).find(m => m._id === modelId || m.id === modelId);
+    return model ? `${model.name} ${model.wattage}W` : 'Unknown';
+  };
+
+  const claimsByModel = {};
+  claims.forEach(claim => {
+    (claim.items || []).forEach(item => {
+      const batch = (batches || []).find(b => b._id === String(item.batch_id) || b._id === item.batch_id);
+      if (batch) {
+        const modelName = getModelName(batch.model_id);
+        if (!claimsByModel[modelName]) claimsByModel[modelName] = { claims: 0, qty: 0 };
+        claimsByModel[modelName].claims += 1;
+        claimsByModel[modelName].qty += (item.scanned_quantity || item.quantity || 0);
+      }
+    });
+  });
+
+  // Failure Rate % (verified qty / total batch qty × 100)
+  const failureByModel = {};
+  (batches || []).forEach(batch => {
+    const modelName = getModelName(batch.model_id);
+    if (!failureByModel[modelName]) failureByModel[modelName] = { totalQty: 0, returnedQty: 0 };
+    failureByModel[modelName].totalQty += (batch.quantity || 0);
+  });
+  claims.filter(c => c.verified).forEach(claim => {
+    (claim.items || []).forEach(item => {
+      const batch = (batches || []).find(b => b._id === String(item.batch_id) || b._id === item.batch_id);
+      if (batch) {
+        const modelName = getModelName(batch.model_id);
+        if (failureByModel[modelName]) {
+          failureByModel[modelName].returnedQty += (item.scanned_quantity || item.quantity || 0);
+        }
+      }
+    });
+  });
+
+  // Supervisor Audit (returns by supervisor)
+  const supervisorAudit = {};
+  claims.filter(c => c.verified).forEach(claim => {
+    (claim.items || []).forEach(item => {
+      const batch = (batches || []).find(b => b._id === String(item.batch_id) || b._id === item.batch_id);
+      if (batch && batch.supervisor_id) {
+        const supName = getUserName(batch.supervisor_id);
+        if (!supervisorAudit[supName]) supervisorAudit[supName] = { returns: 0, qty: 0 };
+        supervisorAudit[supName].returns += 1;
+        supervisorAudit[supName].qty += (item.scanned_quantity || item.quantity || 0);
+      }
+    });
+  });
+
+  // Supplier Audit (failures by supplier)
+  const supplierAudit = {};
+  claims.filter(c => c.verified).forEach(claim => {
+    (claim.items || []).forEach(item => {
+      const batch = (batches || []).find(b => b._id === String(item.batch_id) || b._id === item.batch_id);
+      if (batch && batch.supplier) {
+        const supplier = batch.supplier;
+        if (!supplierAudit[supplier]) supplierAudit[supplier] = { returns: 0, qty: 0 };
+        supplierAudit[supplier].returns += 1;
+        supplierAudit[supplier].qty += (item.scanned_quantity || item.quantity || 0);
+      }
+    });
   });
 
   return (
@@ -455,6 +529,114 @@ const StatisticsTab = ({ claims, users, merchants, getUserName, getMerchantName 
           </table>
         </div>
       </div>
+
+      <div className="two-column-grid" style={{ marginTop: '2rem' }}>
+        <div className="card">
+          <h3>Claims by Model</h3>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Claims</th>
+                <th>Total Qty</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(claimsByModel).sort((a, b) => b[1].qty - a[1].qty).map(([model, data]) => (
+                <tr key={model}>
+                  <td>{model}</td>
+                  <td>{data.claims}</td>
+                  <td>{data.qty}</td>
+                </tr>
+              ))}
+              {Object.keys(claimsByModel).length === 0 && (
+                <tr><td colSpan="3" style={{ textAlign: 'center' }}>No data available</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="card">
+          <h3>Failure Rate %</h3>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Produced</th>
+                <th>Returned</th>
+                <th>Rate %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(failureByModel).filter(([, d]) => d.returnedQty > 0).sort((a, b) => (b[1].returnedQty / b[1].totalQty) - (a[1].returnedQty / a[1].totalQty)).map(([model, data]) => (
+                <tr key={model}>
+                  <td>{model}</td>
+                  <td>{data.totalQty}</td>
+                  <td>{data.returnedQty}</td>
+                  <td style={{ color: (data.returnedQty / data.totalQty * 100) > 5 ? '#dc3545' : '#28a745' }}>
+                    {(data.returnedQty / data.totalQty * 100).toFixed(2)}%
+                  </td>
+                </tr>
+              ))}
+              {Object.values(failureByModel).every(d => d.returnedQty === 0) && (
+                <tr><td colSpan="4" style={{ textAlign: 'center' }}>No failures recorded</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="two-column-grid" style={{ marginTop: '2rem' }}>
+        <div className="card">
+          <h3>Supervisor Audit</h3>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Supervisor</th>
+                <th>Returns</th>
+                <th>Qty Returned</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(supervisorAudit).sort((a, b) => b[1].qty - a[1].qty).map(([sup, data]) => (
+                <tr key={sup}>
+                  <td>{sup}</td>
+                  <td>{data.returns}</td>
+                  <td>{data.qty}</td>
+                </tr>
+              ))}
+              {Object.keys(supervisorAudit).length === 0 && (
+                <tr><td colSpan="3" style={{ textAlign: 'center' }}>No supervisor data available</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="card">
+          <h3>Supplier Audit</h3>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Supplier</th>
+                <th>Returns</th>
+                <th>Qty Returned</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(supplierAudit).sort((a, b) => b[1].qty - a[1].qty).map(([sup, data]) => (
+                <tr key={sup}>
+                  <td>{sup}</td>
+                  <td>{data.returns}</td>
+                  <td>{data.qty}</td>
+                </tr>
+              ))}
+              {Object.keys(supplierAudit).length === 0 && (
+                <tr><td colSpan="3" style={{ textAlign: 'center' }}>No supplier data available</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };
@@ -470,11 +652,33 @@ const MerchantModal = ({ merchant, onSave, onClose }) => {
     is_active: merchant?.is_active !== undefined ? merchant.is_active : true,
   });
 
-  const provinces = Object.keys(pakistanLocations);
-  const cities = formData.province ? pakistanLocations[formData.province] || [] : [];
+  const [locations, setLocations] = useState([]);
+  const [citySearch, setCitySearch] = useState('');
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const [showNewCityInput, setShowNewCityInput] = useState(false);
+  const [newCityName, setNewCityName] = useState('');
+
+  useEffect(() => {
+    const loadLocations = async () => {
+      try {
+        const data = await locationsAPI.getAll();
+        setLocations(data);
+      } catch (err) {
+        console.error('Failed to load locations:', err);
+      }
+    };
+    loadLocations();
+  }, []);
+
+  const provinces = [...new Set(locations.map(l => l.province))].sort();
+  const filteredCities = locations.filter(l =>
+    l.province === formData.province &&
+    (!citySearch || l.name.toLowerCase().includes(citySearch.toLowerCase()))
+  );
 
   const handleProvinceChange = (province) => {
     setFormData({ ...formData, province, city: '' });
+    setCitySearch('');
   };
 
   const handleSubmit = (e) => {
@@ -517,18 +721,67 @@ const MerchantModal = ({ merchant, onSave, onClose }) => {
           </div>
           <div className="form-group">
             <label className="form-label">City *</label>
-            <select
-              className="form-control"
-              value={formData.city}
-              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-              required
-              disabled={!formData.province}
-            >
-              <option value="">Select City</option>
-              {cities.map((city) => (
-                <option key={city} value={city}>{city}</option>
-              ))}
-            </select>
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                className="form-control"
+                value={formData.city || citySearch}
+                onChange={(e) => {
+                  setCitySearch(e.target.value);
+                  setFormData({ ...formData, city: '' });
+                  setShowCityDropdown(true);
+                }}
+                onFocus={() => setShowCityDropdown(true)}
+                placeholder="Type to search cities..."
+                required
+                disabled={!formData.province}
+              />
+              {showCityDropdown && citySearch && (
+                <div style={{ position: 'absolute', zIndex: 100, background: '#fff', border: '1px solid #ddd', maxHeight: '200px', overflowY: 'auto', width: '100%', borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                  {filteredCities.map((loc) => (
+                    <div key={loc._id || loc.name} style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #eee' }}
+                      onClick={() => {
+                        setFormData({ ...formData, city: loc.name });
+                        setCitySearch('');
+                        setShowCityDropdown(false);
+                      }}
+                      onMouseDown={(e) => e.preventDefault()}
+                    >
+                      {loc.name}
+                    </div>
+                  ))}
+                  <div style={{ padding: '8px 12px', cursor: 'pointer', color: '#0066cc', fontWeight: 'bold', borderTop: '2px solid #ddd' }}
+                    onClick={() => { setShowNewCityInput(true); setShowCityDropdown(false); setNewCityName(citySearch); }}
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
+                    + Add New City: "{citySearch}"
+                  </div>
+                </div>
+              )}
+              {formData.city && (
+                <button type="button" style={{ position: 'absolute', right: '8px', top: '8px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '16px', color: '#999' }}
+                  onClick={() => { setFormData({ ...formData, city: '' }); setCitySearch(''); }}>×</button>
+              )}
+            </div>
+            {showNewCityInput && formData.province && (
+              <div style={{ display: 'flex', gap: '10px', marginTop: '8px', padding: '10px', background: '#f0f8ff', borderRadius: '4px' }}>
+                <input type="text" className="form-control" value={newCityName}
+                  onChange={(e) => setNewCityName(e.target.value)} placeholder="New city name" style={{ flex: 1 }} />
+                <button type="button" className="btn btn-primary" onClick={async () => {
+                  if (!newCityName.trim()) return;
+                  try {
+                    await locationsAPI.create({ name: newCityName.trim(), province: formData.province });
+                    const data = await locationsAPI.getAll();
+                    setLocations(data);
+                    setFormData({ ...formData, city: newCityName.trim() });
+                    setShowNewCityInput(false);
+                    setNewCityName('');
+                    setCitySearch('');
+                  } catch (err) { alert(getErrorMessage(err, 'Failed to create city')); }
+                }}>Add</button>
+                <button type="button" className="btn btn-secondary" onClick={() => { setShowNewCityInput(false); setNewCityName(''); }}>Cancel</button>
+              </div>
+            )}
           </div>
           <div className="form-group">
             <label className="form-label">Address *</label>

@@ -27,6 +27,13 @@ class Settings(BaseModel):
         "CORS_ORIGINS",
         "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000,https://factor-claim.vercel.app"
     ).split(",")
+    
+    # Email / SMTP Configuration (for automated sale return)
+    accounts_email: str = os.getenv("ACCOUNTS_EMAIL", "")
+    smtp_host: str = os.getenv("SMTP_HOST", "")
+    smtp_port: int = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user: str = os.getenv("SMTP_USER", "")
+    smtp_password: str = os.getenv("SMTP_PASSWORD", "")
 
 
 settings = Settings()

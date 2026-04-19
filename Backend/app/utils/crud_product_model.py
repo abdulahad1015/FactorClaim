@@ -52,13 +52,9 @@ class CRUDProductModel(CRUDBase):
         return await self.delete(pm_id)
     
     async def search_product_models(self, search_term: str) -> List[Dict[str, Any]]:
-        """Search product models by name, supplier, or contractor"""
+        """Search product models by name"""
         filter_dict = {
-            "$or": [
-                {"name": {"$regex": search_term, "$options": "i"}},
-                {"supplier": {"$regex": search_term, "$options": "i"}},
-                {"contractor": {"$regex": search_term, "$options": "i"}}
-            ]
+            "name": {"$regex": search_term, "$options": "i"}
         }
         return await self.get_multi(filter_dict=filter_dict)
 

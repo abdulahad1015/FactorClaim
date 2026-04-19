@@ -20,6 +20,7 @@ class ClaimItem(BaseModel):
     quantity: int = Field(..., gt=0)
     notes: Optional[str] = Field(default="", max_length=200)
     force_add: bool = Field(default=False)  # Allow forcing batches past warranty
+    force_add_reason: Optional[str] = Field(default="", max_length=500)  # Mandatory reason when force_add=True
 
 
 class Claim(BaseModel):

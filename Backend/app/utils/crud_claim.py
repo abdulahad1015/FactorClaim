@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 from ..utils.crud_base import CRUDBase
 from ..models.claim import Claim, ClaimCreate, ClaimUpdate, ClaimVerify, ClaimStatus, ClaimApprove
 from ..utils.crud_batch import batch_crud
+from ..utils.accounting import send_sale_return_email
 
 
 class CRUDClaim(CRUDBase):
@@ -78,6 +79,14 @@ class CRUDClaim(CRUDBase):
     async def create_claim(self, claim_in: ClaimCreate) -> Dict[str, Any]:
         """Create a new claim with unique claim_id and warranty validation"""
         claim_data = claim_in.dict()
+        
+        # Validate force_add_reason when force_add=True
+        for idx, item in enumerate(claim_data.get("items", [])):
+            if item.get("force_add") and not item.get("force_add_reason", "").strip():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Item {idx + 1}: force_add_reason is required when force_add is True"
+                )
         
         # Validate batch warranty before creating claim
         warnings = await self._validate_batch_warranty(claim_data.get("items", []))
@@ -199,7 +208,15 @@ class CRUDClaim(CRUDBase):
                             break
                 update_data["items"] = items
         
-        return await self.update(claim_id, update_data)
+        result = await self.update(claim_id, update_data)
+        
+        # Trigger sale return email after successful verification
+        if result:
+            verified_claim = await self.get(claim_id)
+            if verified_claim:
+                await send_sale_return_email(verified_claim)
+        
+        return result
     
     async def delete_claim(self, claim_id: str) -> bool:
         """Delete claim"""

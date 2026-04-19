@@ -57,12 +57,22 @@ async def init_database():
         await claims_collection.create_index("merchant_id")
         await claims_collection.create_index("rep_id")
         await claims_collection.create_index("status")
+        await claims_collection.create_index("bilty_number")
         print("✅ Created 'claims' collection with indexes")
         
         # Reps collection
         reps_collection = db["reps"]
         await reps_collection.create_index("rep_code", unique=True)
         print("✅ Created 'reps' collection with indexes")
+        
+        # Locations collection
+        locations_collection = db["locations"]
+        await locations_collection.create_index([("name", 1), ("province", 1)], unique=True)
+        await locations_collection.create_index("province")
+        print("✅ Created 'locations' collection with indexes")
+        
+        # Seed locations from pakistanLocations data
+        await seed_locations(locations_collection)
         
         # Create default admin user if not exists
         print("\n👤 Creating default admin user...")
@@ -103,6 +113,71 @@ async def init_database():
     finally:
         client.close()
         print("\n🔌 Disconnected from MongoDB")
+
+
+async def seed_locations(locations_collection):
+    """Seed locations collection with Pakistan provinces/cities data"""
+    existing_count = await locations_collection.count_documents({})
+    if existing_count > 0:
+        print("ℹ️  Locations already seeded")
+        return
+    
+    pakistan_locations = {
+        "Punjab": [
+            "Lahore", "Faisalabad", "Rawalpindi", "Multan", "Gujranwala",
+            "Sialkot", "Sargodha", "Bahawalpur", "Sahiwal", "Sheikhupura",
+            "Gujrat", "Jhelum", "Rahim Yar Khan", "Dera Ghazi Khan", "Kasur",
+            "Okara", "Mianwali", "Chiniot", "Khanewal", "Hafizabad",
+            "Jhang", "Toba Tek Singh", "Vehari", "Attock", "Bhakkar",
+            "Chakwal", "Khushab", "Layyah", "Lodhran", "Mandi Bahauddin",
+            "Muzaffargarh", "Narowal", "Nankana Sahib", "Pakpattan", "Rajanpur"
+        ],
+        "Sindh": [
+            "Karachi", "Hyderabad", "Sukkur", "Larkana", "Nawabshah",
+            "Mirpur Khas", "Jacobabad", "Shikarpur", "Khairpur", "Thatta",
+            "Badin", "Dadu", "Ghotki", "Jamshoro", "Matiari",
+            "Sanghar", "Tando Allahyar", "Tando Muhammad Khan", "Umerkot", "Tharparkar"
+        ],
+        "Khyber Pakhtunkhwa": [
+            "Peshawar", "Mardan", "Abbottabad", "Mingora", "Kohat",
+            "Dera Ismail Khan", "Charsadda", "Nowshera", "Mansehra", "Swabi",
+            "Timergara", "Bannu", "Haripur", "Lakki Marwat", "Hangu",
+            "Karak", "Battagram", "Buner", "Chitral", "Tank",
+            "Upper Dir", "Lower Dir", "Shangla", "Malakand", "Tor Ghar"
+        ],
+        "Balochistan": [
+            "Quetta", "Turbat", "Khuzdar", "Hub", "Chaman",
+            "Gwadar", "Sibi", "Zhob", "Dera Murad Jamali", "Dera Bugti",
+            "Mastung", "Pishin", "Kalat", "Loralai", "Nushki",
+            "Panjgur", "Washuk", "Jhal Magsi", "Barkhan", "Musakhel"
+        ],
+        "Islamabad Capital Territory": [
+            "Islamabad"
+        ],
+        "Azad Jammu & Kashmir": [
+            "Muzaffarabad", "Mirpur", "Bhimber", "Kotli", "Rawalakot",
+            "Bagh", "Pallandri", "Hatian Bala", "Haveli", "Neelum"
+        ],
+        "Gilgit-Baltistan": [
+            "Gilgit", "Skardu", "Chilas", "Hunza", "Ghizer",
+            "Astore", "Ghanche", "Kharmang", "Shigar", "Nagar"
+        ]
+    }
+    
+    docs = []
+    now = datetime.utcnow()
+    for province, cities in pakistan_locations.items():
+        for city in cities:
+            docs.append({
+                "name": city,
+                "province": province,
+                "is_active": True,
+                "created_at": now
+            })
+    
+    if docs:
+        await locations_collection.insert_many(docs)
+        print(f"✅ Seeded {len(docs)} locations across {len(pakistan_locations)} provinces")
 
 
 async def create_sample_data(db):

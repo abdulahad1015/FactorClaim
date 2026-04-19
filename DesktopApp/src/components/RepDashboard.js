@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { merchantsAPI, claimsAPI, batchesAPI, productModelsAPI, productTypesAPI, getErrorMessage } from '../services/api';
-import pakistanLocations from '../data/pakistanLocations';
+import { merchantsAPI, claimsAPI, batchesAPI, productModelsAPI, productTypesAPI, locationsAPI, getErrorMessage } from '../services/api';
 
 const RepDashboard = () => {
   const [activeTab, setActiveTab] = useState('merchants');
@@ -90,6 +89,10 @@ const RepDashboard = () => {
       setShowModal(false);
       loadData();
     } catch (err) {
+      const detail = err?.response?.data?.detail;
+      if (detail && typeof detail === 'object' && detail.error === 'items_require_confirmation') {
+        throw err; // Let ClaimModal handle warranty warnings
+      }
       setError(getErrorMessage(err, 'Failed to save claim'));
     }
   };
@@ -181,6 +184,7 @@ const RepDashboard = () => {
           productTypes={productTypes}
           merchants={merchants}
           onClose={() => setShowModal(false)}
+          onSuccess={() => { setShowModal(false); loadData(); }}
         />
       )}
     </div>
@@ -228,7 +232,7 @@ const ClaimsTab = ({ claims, merchants, onAdd, onView, formatDate }) => {
   const getMerchantName = (merchantId) => {
     if (!merchantId) return 'Unknown';
     const merchant = merchants.find(m => m._id === merchantId || m.id === merchantId);
-    return merchant ? (merchant.name || merchant.address) : `Merchant ${merchantId.slice(-6)}`;
+    return merchant ? (merchant.name || merchant.address) : `Merchant ${String(merchantId).slice(-6)}`;
   };
 
   return (
@@ -297,9 +301,35 @@ const ClaimModal = ({ merchants, batches, productModels, productTypes, userId, o
   const [itemNotes, setItemNotes] = useState('');
   const [batchCode, setBatchCode] = useState('');
   const [scanError, setScanError] = useState('');
+  const [isScanning, setIsScanning] = useState(false);
+  const [locations, setLocations] = useState([]);
+  const [citySearch, setCitySearch] = useState('');
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const [newCityName, setNewCityName] = useState('');
+  const [showNewCityInput, setShowNewCityInput] = useState(false);
+  const [warrantyWarnings, setWarrantyWarnings] = useState(null);
+  const [forceAddReasons, setForceAddReasons] = useState({});
+  const [showForceAddDialog, setShowForceAddDialog] = useState(false);
+  const [pendingClaimData, setPendingClaimData] = useState(null);
 
-  const provinces = Object.keys(pakistanLocations);
-  const cities = filterProvince ? pakistanLocations[filterProvince] || [] : [];
+  // Load locations on mount
+  useEffect(() => {
+    const loadLocations = async () => {
+      try {
+        const data = await locationsAPI.getAll();
+        setLocations(data);
+      } catch (err) {
+        console.error('Failed to load locations:', err);
+      }
+    };
+    loadLocations();
+  }, []);
+
+  const provinces = [...new Set(locations.map(l => l.province))].sort();
+  const filteredCities = locations.filter(l => 
+    (!filterProvince || l.province === filterProvince) &&
+    (!citySearch || l.name.toLowerCase().includes(citySearch.toLowerCase()))
+  );
   const filteredMerchants = merchants.filter(m => {
     if (filterProvince && m.province !== filterProvince) return false;
     if (filterCity && m.city !== filterCity) return false;
@@ -315,9 +345,10 @@ const ClaimModal = ({ merchants, batches, productModels, productTypes, userId, o
   };
 
   const handleBatchScan = async (e) => {
-    if (e.key === 'Enter' && batchCode.trim()) {
+    if (e.key === 'Enter' && batchCode.trim() && !isScanning) {
       e.preventDefault();
       setScanError('');
+      setIsScanning(true);
       try {
         const batch = await batchesAPI.getByBarcode(batchCode.trim());
         if (batch) {
@@ -353,6 +384,8 @@ const ClaimModal = ({ merchants, batches, productModels, productTypes, userId, o
         }
       } catch (err) {
         setScanError(getErrorMessage(err, 'Batch not found. Please check the batch code.'));
+      } finally {
+        setIsScanning(false);
       }
     }
   };
@@ -408,16 +441,59 @@ const ClaimModal = ({ merchants, batches, productModels, productTypes, userId, o
       return;
     }
     // Send only the data that matches backend ClaimCreate model
-    onSave({
+    const claimData = {
       rep_id: userId,
       merchant_id: formData.merchant_id,
       items: formData.items.map(item => ({
         batch_id: item.batch_id,
         quantity: item.quantity,
-        notes: item.notes || ''
+        notes: item.notes || '',
+        force_add: item.force_add || false,
+        force_add_reason: item.force_add_reason || ''
       })),
       notes: formData.notes || ''
+    };
+    submitClaim(claimData);
+  };
+
+  const submitClaim = async (claimData) => {
+    try {
+      await onSave(claimData);
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      if (detail && typeof detail === 'object' && detail.error === 'items_require_confirmation') {
+        setWarrantyWarnings(detail.warnings);
+        setPendingClaimData(claimData);
+        // Initialize reasons for each warning
+        const reasons = {};
+        detail.warnings.forEach(w => { reasons[w.item_index] = ''; });
+        setForceAddReasons(reasons);
+        setShowForceAddDialog(true);
+      } else {
+        throw err;
+      }
+    }
+  };
+
+  const handleForceAddConfirm = () => {
+    // Validate all reasons are filled
+    for (const w of warrantyWarnings) {
+      if (!forceAddReasons[w.item_index]?.trim()) {
+        alert(`Please provide a reason for batch "${w.batch_code}"`);
+        return;
+      }
+    }
+    // Update items with force_add and reason
+    const updatedItems = pendingClaimData.items.map((item, idx) => {
+      const warning = warrantyWarnings.find(w => w.item_index === idx);
+      if (warning) {
+        return { ...item, force_add: true, force_add_reason: forceAddReasons[idx] };
+      }
+      return item;
     });
+    const updatedData = { ...pendingClaimData, items: updatedItems };
+    setShowForceAddDialog(false);
+    onSave(updatedData);
   };
 
   return (
@@ -437,6 +513,7 @@ const ClaimModal = ({ merchants, batches, productModels, productTypes, userId, o
                 onChange={(e) => {
                   setFilterProvince(e.target.value);
                   setFilterCity('');
+                  setCitySearch('');
                   setFormData({ ...formData, merchant_id: '' });
                 }}
               >
@@ -446,24 +523,80 @@ const ClaimModal = ({ merchants, batches, productModels, productTypes, userId, o
                 ))}
               </select>
             </div>
-            <div className="form-group" style={{ flex: 1 }}>
+            <div className="form-group" style={{ flex: 1, position: 'relative' }}>
               <label className="form-label">City</label>
-              <select
+              <input
+                type="text"
                 className="form-control"
-                value={filterCity}
+                value={filterCity || citySearch}
                 onChange={(e) => {
-                  setFilterCity(e.target.value);
-                  setFormData({ ...formData, merchant_id: '' });
+                  setCitySearch(e.target.value);
+                  setFilterCity('');
+                  setShowCityDropdown(true);
                 }}
+                onFocus={() => setShowCityDropdown(true)}
+                placeholder="Type to search cities..."
                 disabled={!filterProvince}
-              >
-                <option value="">All Cities</option>
-                {cities.map((city) => (
-                  <option key={city} value={city}>{city}</option>
-                ))}
-              </select>
+              />
+              {showCityDropdown && citySearch && filteredCities.length > 0 && (
+                <div style={{ position: 'absolute', zIndex: 100, background: '#fff', border: '1px solid #ddd', maxHeight: '200px', overflowY: 'auto', width: '100%', borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                  {filteredCities.map((loc) => (
+                    <div key={loc._id || loc.name} style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #eee' }}
+                      onClick={() => {
+                        setFilterCity(loc.name);
+                        setCitySearch('');
+                        setShowCityDropdown(false);
+                        setFormData({ ...formData, merchant_id: '' });
+                      }}
+                      onMouseDown={(e) => e.preventDefault()}
+                    >
+                      {loc.name}
+                    </div>
+                  ))}
+                  <div style={{ padding: '8px 12px', cursor: 'pointer', color: '#0066cc', fontWeight: 'bold', borderTop: '2px solid #ddd' }}
+                    onClick={() => { setShowNewCityInput(true); setShowCityDropdown(false); setNewCityName(citySearch); }}
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
+                    + Add New City: "{citySearch}"
+                  </div>
+                </div>
+              )}
+              {showCityDropdown && citySearch && filteredCities.length === 0 && (
+                <div style={{ position: 'absolute', zIndex: 100, background: '#fff', border: '1px solid #ddd', width: '100%', borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                  <div style={{ padding: '8px 12px', color: '#999' }}>No cities found</div>
+                  <div style={{ padding: '8px 12px', cursor: 'pointer', color: '#0066cc', fontWeight: 'bold', borderTop: '1px solid #eee' }}
+                    onClick={() => { setShowNewCityInput(true); setShowCityDropdown(false); setNewCityName(citySearch); }}
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
+                    + Add New City: "{citySearch}"
+                  </div>
+                </div>
+              )}
+              {filterCity && (
+                <button type="button" style={{ position: 'absolute', right: '8px', top: '32px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '16px', color: '#999' }}
+                  onClick={() => { setFilterCity(''); setCitySearch(''); setFormData({ ...formData, merchant_id: '' }); }}>×</button>
+              )}
             </div>
           </div>
+          {showNewCityInput && filterProvince && (
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', padding: '10px', background: '#f0f8ff', borderRadius: '4px' }}>
+              <input type="text" className="form-control" value={newCityName}
+                onChange={(e) => setNewCityName(e.target.value)} placeholder="New city name" style={{ flex: 1 }} />
+              <button type="button" className="btn btn-primary" onClick={async () => {
+                if (!newCityName.trim()) return;
+                try {
+                  await locationsAPI.create({ name: newCityName.trim(), province: filterProvince });
+                  const data = await locationsAPI.getAll();
+                  setLocations(data);
+                  setFilterCity(newCityName.trim());
+                  setShowNewCityInput(false);
+                  setNewCityName('');
+                  setCitySearch('');
+                } catch (err) { alert(getErrorMessage(err, 'Failed to create city')); }
+              }}>Add</button>
+              <button type="button" className="btn btn-secondary" onClick={() => { setShowNewCityInput(false); setNewCityName(''); }}>Cancel</button>
+            </div>
+          )}
           <div className="form-group">
             <label className="form-label">Merchant *</label>
             <select
@@ -604,11 +737,39 @@ const ClaimModal = ({ merchants, batches, productModels, productTypes, userId, o
           </div>
         </form>
       </div>
+      {showForceAddDialog && warrantyWarnings && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setShowForceAddDialog(false)}>
+          <div style={{ background: '#fff', borderRadius: '8px', padding: '24px', maxWidth: '500px', width: '90%', maxHeight: '80vh', overflowY: 'auto' }}
+            onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0, color: '#dc3545' }}>⚠️ Warranty Expired</h3>
+            <p>The following batches have expired warranties. Please provide a reason for each to proceed:</p>
+            {warrantyWarnings.map((w) => (
+              <div key={w.item_index} style={{ marginBottom: '15px', padding: '10px', background: '#fff3cd', borderRadius: '4px' }}>
+                <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Batch: {w.batch_code}</div>
+                <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px' }}>{w.message}</div>
+                <textarea
+                  className="form-control"
+                  placeholder="Reason for adding expired batch (required)"
+                  value={forceAddReasons[w.item_index] || ''}
+                  onChange={(e) => setForceAddReasons({ ...forceAddReasons, [w.item_index]: e.target.value })}
+                  rows={2}
+                  required
+                />
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" onClick={() => setShowForceAddDialog(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleForceAddConfirm}>Confirm & Submit</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-const ViewClaimModal = ({ claim, batches, productModels, productTypes, merchants, onClose }) => {
+const ViewClaimModal = ({ claim, batches, productModels, productTypes, merchants, onClose, onSuccess }) => {
   const [biltyNumber, setBiltyNumber] = useState(claim?.bilty_number || '');
   const [isUpdatingBilty, setIsUpdatingBilty] = useState(false);
   const [biltyError, setBiltyError] = useState('');
@@ -617,7 +778,7 @@ const ViewClaimModal = ({ claim, batches, productModels, productTypes, merchants
 
   const getBatchName = (batchId) => {
     const batch = batches.find(b => b._id === batchId || b.id === batchId);
-    if (!batch) return `Batch ${batchId?.slice(-6) || 'Unknown'}`;
+    if (!batch) return `Batch ${batchId ? String(batchId).slice(-6) : 'Unknown'}`;
     const model = productModels.find(m => m._id === batch.model_id);
     const typeName = model ? (productTypes.find(t => t._id === model.product_type_id)?.name || '') : '';
     return `${batch.batch_code} - ${model ? model.name : 'Unknown'}${typeName ? ` (${typeName})` : ''}`;
@@ -626,7 +787,7 @@ const ViewClaimModal = ({ claim, batches, productModels, productTypes, merchants
   const getMerchantName = (merchantId) => {
     if (!merchantId) return 'Unknown';
     const merchant = merchants.find(m => m._id === merchantId || m.id === merchantId);
-    return merchant ? (merchant.name || merchant.address) : `Merchant ${merchantId.slice(-6)}`;
+    return merchant ? (merchant.name || merchant.address) : `Merchant ${String(merchantId).slice(-6)}`;
   };
 
   const formatDate = (dateString) => {
@@ -671,8 +832,7 @@ const ViewClaimModal = ({ claim, batches, productModels, productTypes, merchants
     try {
       await claimsAPI.updateBilty(claim._id || claim.id, biltyNumber);
       alert('Bilty number updated successfully! Status changed to Approval Pending.');
-      onClose();
-      window.location.reload(); // Refresh to show updated data
+      if (onSuccess) onSuccess(); else onClose();
     } catch (err) {
       setBiltyError(getErrorMessage(err, 'Failed to update bilty number'));
     } finally {

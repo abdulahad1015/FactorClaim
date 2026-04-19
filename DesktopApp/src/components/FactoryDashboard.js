@@ -116,19 +116,19 @@ const FactoryDashboard = () => {
     const foundUser = users.find(u => u.id === userId || u._id === userId);
     if (foundUser) return foundUser.name;
     // If users array is empty (no permission), show a friendly fallback
-    return users.length === 0 ? 'Rep' : `Rep (${userId.slice(-6)})`;
+    return users.length === 0 ? 'Rep' : `Rep (${String(userId).slice(-6)})`;
   };
 
   const getMerchantName = (merchantId) => {
     if (!merchantId) return 'Unknown';
     const foundMerchant = merchants.find(m => m._id === merchantId || m.id === merchantId);
-    return foundMerchant ? foundMerchant.name || foundMerchant.address : `Merchant ${merchantId.slice(-6)}`;
+    return foundMerchant ? foundMerchant.name || foundMerchant.address : `Merchant ${String(merchantId).slice(-6)}`;
   };
 
   const getBatchName = (batchId) => {
     if (!batchId) return 'Unknown';
     const foundBatch = batches.find(b => b._id === batchId || b.id === batchId);
-    if (!foundBatch) return `Batch ${batchId.slice(-6)}`;
+    if (!foundBatch) return `Batch ${String(batchId).slice(-6)}`;
     const model = productModels.find(m => m._id === foundBatch.model_id);
     const typeName = model ? (productTypes.find(t => t._id === model.product_type_id)?.name || '') : '';
     return `${foundBatch.batch_code} - ${model ? model.name : 'Unknown'}-${model ? model.wattage : '?'}W${typeName ? ` (${typeName})` : ''}`;
@@ -181,6 +181,7 @@ const FactoryDashboard = () => {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter(c =>
         (c.claim_id || '').toLowerCase().includes(q) ||
+        (c.bilty_number || '').toLowerCase().includes(q) ||
         getMerchantName(c.merchant_id).toLowerCase().includes(q) ||
         getUserName(c.rep_id).toLowerCase().includes(q)
       );
@@ -264,11 +265,11 @@ const FactoryDashboard = () => {
         </div>
 
         <div className="card">
-          <div style={{ display: 'fixed', gap: '10px', marginBottom: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
             <input
               type="text"
               className="form-control"
-              placeholder="Search by Claim ID, merchant, or rep..."
+              placeholder="Search by Claim ID, Bilty #, merchant, or rep..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{ flex: '1', minWidth: '20px' }}
@@ -303,6 +304,7 @@ const FactoryDashboard = () => {
               <thead>
                 <tr>
                   <th>Claim ID</th>
+                  <th>Bilty #</th>
                   <th>Date</th>
                   <th>Merchant</th>
                   <th>Items</th>
@@ -314,6 +316,7 @@ const FactoryDashboard = () => {
                 {displayedClaims.map((claim) => (
                   <tr key={claim._id}>
                     <td style={{ fontFamily: 'monospace', fontSize: '0.9em', color: '#0066cc' }}>{claim.claim_id || 'N/A'}</td>
+                    <td style={{ fontFamily: 'monospace', fontSize: '0.9em' }}>{claim.bilty_number || '-'}</td>
                     <td>{formatDate(claim.date)}</td>
                     <td>{getMerchantName(claim.merchant_id)}</td>
                     <td>{claim.items?.length || 0}</td>
@@ -358,6 +361,7 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
   const [scanSuccess, setScanSuccess] = useState('');
   const [scannedCounts, setScannedCounts] = useState({});
   // scannedCounts = { batch_id: scannedQuantity }
+  const [isScanning, setIsScanning] = useState(false);
 
   const getStatusBadgeLocal = (claimObj) => {
     if (claimObj.verified) {
@@ -393,10 +397,11 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
   }, [allItemsScanned]);
 
   const handleScan = async (e) => {
-    if (e.key === 'Enter' && batchCode.trim()) {
+    if (e.key === 'Enter' && batchCode.trim() && !isScanning) {
       e.preventDefault();
       setScanError('');
       setScanSuccess('');
+      setIsScanning(true);
       try {
         const batch = await batchesAPI.getByBarcode(batchCode.trim());
         if (batch) {
@@ -435,6 +440,8 @@ const ClaimDetailModal = ({ claim, onVerify, onClose, getUserName, getMerchantNa
       } catch (err) {
         setScanError(getErrorMessage(err, 'Batch not found. Please check the batch code.'));
         setBatchCode('');
+      } finally {
+        setIsScanning(false);
       }
     }
   };

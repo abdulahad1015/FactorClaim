@@ -43,6 +43,7 @@ class Batch(BaseModel):
     warranty_period: int = Field(..., gt=0, description="Warranty period in months")
     supplier: Optional[str] = Field(default="", max_length=100)
     contractor: Optional[str] = Field(default="", max_length=100)
+    supervisor_id: Optional[PyObjectId] = Field(default=None)
     notes: Optional[str] = Field(default="", max_length=500)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -76,6 +77,7 @@ class BatchCreate(BaseModel):
     warranty_period: int = Field(..., gt=0, description="Warranty period in months")
     supplier: Optional[str] = Field(default="", max_length=100)
     contractor: Optional[str] = Field(default="", max_length=100)
+    supervisor_id: Optional[PyObjectId] = Field(default=None)
     notes: Optional[str] = Field(default="", max_length=500)
 
     class Config:
@@ -92,6 +94,7 @@ class BatchUpdate(BaseModel):
     warranty_period: Optional[int] = Field(None, gt=0)
     supplier: Optional[str] = Field(None, max_length=100)
     contractor: Optional[str] = Field(None, max_length=100)
+    supervisor_id: Optional[PyObjectId] = Field(default=None)
     notes: Optional[str] = Field(None, max_length=500)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

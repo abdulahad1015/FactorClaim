@@ -270,4 +270,31 @@ export const claimsAPI = {
   },
 };
 
+export const locationsAPI = {
+  getAll: async (province = null) => {
+    const params = province ? { province } : {};
+    const response = await api.get('/api/locations', { params });
+    return response.data;
+  },
+  
+  search: async (term) => {
+    const response = await api.get(`/api/locations/search/${encodeURIComponent(term)}`);
+    return response.data;
+  },
+  
+  create: async (data) => {
+    const response = await api.post('/api/locations', data);
+    return response.data;
+  },
+};
+
+export const accountingAPI = {
+  downloadSaleReturnCSV: async (claimId) => {
+    const response = await api.get(`/api/accounting/sale-return/${claimId}/csv`, {
+      responseType: 'blob'
+    });
+    return response.data;
+  },
+};
+
 export default api;

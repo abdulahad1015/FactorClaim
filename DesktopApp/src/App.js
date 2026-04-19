@@ -7,11 +7,13 @@ import FactoryDashboard from './components/FactoryDashboard';
 import WarehouseDashboard from './components/WarehouseDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import UpdateNotification from './components/UpdateNotification';
+import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './context/AuthContext';
 import './App.css';
 
 function App() {
   return (
+    <ErrorBoundary>
     <AuthProvider>
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <div className="App">
@@ -55,6 +57,7 @@ function App() {
         </div>
       </Router>
     </AuthProvider>
+    </ErrorBoundary>
   );
 }
 
