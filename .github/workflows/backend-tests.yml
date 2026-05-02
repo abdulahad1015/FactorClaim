@@ -1,0 +1,56 @@
+name: Backend Integration Tests
+
+on:
+  push:
+    branches: [main, master, develop]
+    paths:
+      - "Backend/**"
+      - ".github/workflows/backend-tests.yml"
+  pull_request:
+    branches: [main, master, develop]
+    paths:
+      - "Backend/**"
+      - ".github/workflows/backend-tests.yml"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: Backend/requirements.txt
+
+      - name: Install dependencies
+        working-directory: Backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx mongomock-motor
+
+      - name: Run integration tests
+        working-directory: Backend
+        env:
+          SECRET_KEY: ci-test-secret-key-not-for-production
+          DATABASE_NAME: factorclaim_test
+          MONGODB_URL: mongodb://localhost:27017
+          DEBUG: "false"
+        run: |
+          python -m pytest tests/ -v --tb=short --junitxml=test-results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-py${{ matrix.python-version }}
+          path: Backend/test-results.xml
