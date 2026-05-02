@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { usersAPI, productTypesAPI, productModelsAPI, batchesAPI, claimsAPI, merchantsAPI, getErrorMessage } from '../services/api';
+import { usersAPI, productTypesAPI, productModelsAPI, batchesAPI, claimsAPI, merchantsAPI, suppliersAPI, getErrorMessage } from '../services/api';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('productTypes');
@@ -11,12 +11,14 @@ const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
   const [claims, setClaims] = useState([]);
   const [merchants, setMerchants] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [currentItem, setCurrentItem] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [currentSupplier, setCurrentSupplier] = useState(null);
   const [currentClaim, setCurrentClaim] = useState(null);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -68,14 +70,18 @@ const AdminDashboard = () => {
         setProductModels(modelsData);
         setProductTypes(ptData);
       } else if (activeTab === 'batches') {
-        const [batchesData, modelsData, ptData] = await Promise.all([
+        const [batchesData, modelsData, ptData, usersData, suppliersData] = await Promise.all([
           batchesAPI.getAll(),
           productModelsAPI.getAll(),
-          productTypesAPI.getAll()
+          productTypesAPI.getAll(),
+          usersAPI.getAll(),
+          suppliersAPI.getAll()
         ]);
         setBatches(batchesData);
         setProductModels(modelsData);
         setProductTypes(ptData);
+        setUsers(usersData);
+        setSuppliers(suppliersData);
       } else if (activeTab === 'users') {
         const data = await usersAPI.getAll();
         setUsers(data);
@@ -95,14 +101,25 @@ const AdminDashboard = () => {
         setProductModels(modelsData);
         setProductTypes(ptData);
       } else if (activeTab === 'statistics') {
-        const [claimsData, usersData, merchantsData] = await Promise.all([
+        const [claimsData, usersData, merchantsData, batchesData, modelsData, ptData, suppliersData] = await Promise.all([
           claimsAPI.getAll(),
           usersAPI.getAll(),
-          merchantsAPI.getAll()
+          merchantsAPI.getAll(),
+          batchesAPI.getAll(),
+          productModelsAPI.getAll(),
+          productTypesAPI.getAll(),
+          suppliersAPI.getAll()
         ]);
         setClaims(claimsData);
         setUsers(usersData);
         setMerchants(merchantsData);
+        setBatches(batchesData);
+        setProductModels(modelsData);
+        setProductTypes(ptData);
+        setSuppliers(suppliersData);
+      } else if (activeTab === 'suppliers') {
+        const data = await suppliersAPI.getAll();
+        setSuppliers(data);
       }
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to load data'));
@@ -213,6 +230,43 @@ const AdminDashboard = () => {
     setShowModal(true);
   };
 
+  const handleAddSupplier = () => {
+    setCurrentSupplier(null);
+    setModalType('supplier');
+    setShowModal(true);
+  };
+
+  const handleEditSupplier = (supplier) => {
+    setCurrentSupplier(supplier);
+    setModalType('supplier');
+    setShowModal(true);
+  };
+
+  const handleDeleteSupplier = async (id) => {
+    if (window.confirm('Are you sure you want to delete this supplier?')) {
+      try {
+        await suppliersAPI.delete(id);
+        loadData();
+      } catch (err) {
+        setError(getErrorMessage(err, 'Failed to delete supplier'));
+      }
+    }
+  };
+
+  const handleSaveSupplier = async (supplierData) => {
+    try {
+      if (currentSupplier) {
+        await suppliersAPI.update(currentSupplier._id, supplierData);
+      } else {
+        await suppliersAPI.create(supplierData);
+      }
+      setShowModal(false);
+      loadData();
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to save supplier'));
+    }
+  };
+
   const getStatistics = () => {
     const total = claims.length;
     const verified = claims.filter(c => c.verified).length;
@@ -273,6 +327,12 @@ const AdminDashboard = () => {
             Users
           </button>
           <button
+            className={`tab-button ${activeTab === 'suppliers' ? 'active' : ''}`}
+            onClick={() => setActiveTab('suppliers')}
+          >
+            Suppliers
+          </button>
+          <button
             className={`tab-button ${activeTab === 'claims' ? 'active' : ''}`}
             onClick={() => setActiveTab('claims')}
           >
@@ -312,6 +372,7 @@ const AdminDashboard = () => {
                 batches={batches}
                 models={productModels}
                 productTypes={productTypes}
+                suppliers={suppliers}
                 onAdd={handleAddItem}
                 onEdit={handleEditItem}
                 onDelete={handleDeleteItem}
@@ -324,6 +385,14 @@ const AdminDashboard = () => {
                 onAdd={handleAddUser}
                 onEdit={handleEditUser}
                 onDelete={handleDeleteUser}
+              />
+            )}
+            {activeTab === 'suppliers' && (
+              <SuppliersTab
+                suppliers={suppliers}
+                onAdd={handleAddSupplier}
+                onEdit={handleEditSupplier}
+                onDelete={handleDeleteSupplier}
               />
             )}
             {activeTab === 'claims' && (
@@ -339,6 +408,10 @@ const AdminDashboard = () => {
               <StatisticsTab 
                 statistics={getStatistics()} 
                 claims={claims}
+                batches={batches}
+                models={productModels}
+                productTypes={productTypes}
+                suppliers={suppliers}
                 formatDate={formatDate}
                 getUserName={getUserName}
               />
@@ -368,6 +441,7 @@ const AdminDashboard = () => {
           models={productModels}
           productTypes={productTypes}
           users={users}
+          suppliers={suppliers}
           onSave={handleSaveItem}
           onClose={() => setShowModal(false)}
         />
@@ -387,6 +461,13 @@ const AdminDashboard = () => {
           productTypes={productTypes}
           users={users}
           merchants={merchants}
+          onClose={() => setShowModal(false)}
+        />
+      )}
+      {showModal && modalType === 'supplier' && (
+        <SupplierModal
+          item={currentSupplier}
+          onSave={handleSaveSupplier}
           onClose={() => setShowModal(false)}
         />
       )}
@@ -489,7 +570,7 @@ const ModelsTab = ({ models, productTypes, onAdd, onEdit, onDelete }) => {
   );
 };
 
-const BatchesTab = ({ batches, models, productTypes, onAdd, onEdit, onDelete, formatDate }) => {
+const BatchesTab = ({ batches, models, productTypes, suppliers, onAdd, onEdit, onDelete, formatDate }) => {
   const [filters, setFilters] = useState({ search: '', modelId: '' });
 
   const getModelName = (modelId) => {
@@ -499,11 +580,19 @@ const BatchesTab = ({ batches, models, productTypes, onAdd, onEdit, onDelete, fo
     return `${model.name} (${pt ? pt.name : ''} - ${model.wattage}W)`;
   };
 
+  const getSupplierName = (supplierId) => {
+    if (!supplierId) return '-';
+    const supplier = (suppliers || []).find(s => s._id === supplierId || s.id === supplierId);
+    return supplier ? supplier.name : '-';
+  };
+
   const filteredBatches = batches.filter(b => {
+    const supplierName = getSupplierName(b.supplier_id);
     const matchesSearch = !filters.search ||
       b.batch_code?.toLowerCase().includes(filters.search.toLowerCase()) ||
       b.colour?.toLowerCase().includes(filters.search.toLowerCase()) ||
-      b.supplier?.toLowerCase().includes(filters.search.toLowerCase());
+      b.contractor?.toLowerCase().includes(filters.search.toLowerCase()) ||
+      supplierName.toLowerCase().includes(filters.search.toLowerCase());
     const matchesModel = !filters.modelId || b.model_id === filters.modelId;
     return matchesSearch && matchesModel;
   });
@@ -549,6 +638,7 @@ const BatchesTab = ({ batches, models, productTypes, onAdd, onEdit, onDelete, fo
               <th>Model</th>
               <th>Colour</th>
               <th>Quantity</th>
+              <th>Supplier</th>
               <th>Production Date</th>
               <th>Warranty</th>
               <th>Actions</th>
@@ -561,6 +651,7 @@ const BatchesTab = ({ batches, models, productTypes, onAdd, onEdit, onDelete, fo
                 <td>{getModelName(batch.model_id)}</td>
                 <td>{batch.colour || '-'}</td>
                 <td>{batch.quantity}</td>
+                <td>{getSupplierName(batch.supplier_id)}</td>
                 <td>{formatDate(batch.production_date)}</td>
                 <td>{batch.warranty_period} months</td>
                 <td className="table-actions">
@@ -620,7 +711,86 @@ const UsersTab = ({ users, onAdd, onEdit, onDelete }) => {
   );
 };
 
-const StatisticsTab = ({ statistics, claims, formatDate, getUserName }) => {
+const StatisticsTab = ({ statistics, claims, batches, models, productTypes, suppliers, formatDate, getUserName }) => {
+  const [reportTab, setReportTab] = useState('overview');
+
+  const getModelName = (modelId) => {
+    const model = (models || []).find(m => m._id === modelId || m.id === modelId);
+    if (!model) return 'Unknown';
+    const pt = (productTypes || []).find(p => p._id === model.product_type_id || p.id === model.product_type_id);
+    return `${model.name} (${pt ? pt.name : ''} - ${model.wattage}W)`;
+  };
+
+  const getSupplierName = (supplierId) => {
+    if (!supplierId) return 'Unknown';
+    const supplier = (suppliers || []).find(s => s._id === supplierId || s.id === supplierId);
+    return supplier ? supplier.name : 'Unknown';
+  };
+
+  const getBatchReport = () => {
+    const batchMap = {};
+    (claims || []).forEach(claim => {
+      (claim.items || []).forEach(item => {
+        const bId = item.batch_id;
+        if (!batchMap[bId]) batchMap[bId] = { claimCount: 0, totalQty: 0 };
+        batchMap[bId].claimCount += 1;
+        batchMap[bId].totalQty += item.quantity || 0;
+      });
+    });
+    return Object.entries(batchMap).map(([batchId, data]) => {
+      const batch = (batches || []).find(b => b._id === batchId || b.id === batchId);
+      return {
+        batchId,
+        batchCode: batch?.batch_code || 'Unknown',
+        modelName: batch ? getModelName(batch.model_id) : 'Unknown',
+        supplierName: batch ? getSupplierName(batch.supplier_id) : 'Unknown',
+        ...data
+      };
+    }).sort((a, b) => b.totalQty - a.totalQty);
+  };
+
+  const getModelReport = () => {
+    const modelMap = {};
+    (claims || []).forEach(claim => {
+      (claim.items || []).forEach(item => {
+        const batch = (batches || []).find(b => b._id === item.batch_id || b.id === item.batch_id);
+        const mId = batch?.model_id || 'unknown';
+        if (!modelMap[mId]) modelMap[mId] = { claimCount: new Set(), totalQty: 0, batchIds: new Set() };
+        modelMap[mId].claimCount.add(claim._id);
+        modelMap[mId].totalQty += item.quantity || 0;
+        modelMap[mId].batchIds.add(item.batch_id);
+      });
+    });
+    return Object.entries(modelMap).map(([modelId, data]) => ({
+      modelId,
+      modelName: getModelName(modelId),
+      claimCount: data.claimCount.size,
+      batchCount: data.batchIds.size,
+      totalQty: data.totalQty
+    })).sort((a, b) => b.totalQty - a.totalQty);
+  };
+
+  const getSupplierReport = () => {
+    const supplierMap = {};
+    (claims || []).forEach(claim => {
+      (claim.items || []).forEach(item => {
+        const batch = (batches || []).find(b => b._id === item.batch_id || b.id === item.batch_id);
+        const sId = batch?.supplier_id || 'unknown';
+        if (!supplierMap[sId]) supplierMap[sId] = { claimCount: new Set(), totalQty: 0, batchIds: new Set() };
+        supplierMap[sId].claimCount.add(claim._id);
+        supplierMap[sId].totalQty += item.quantity || 0;
+        supplierMap[sId].batchIds.add(item.batch_id);
+      });
+    });
+    return Object.entries(supplierMap).map(([supplierId, data]) => ({
+      supplierId,
+      supplierName: getSupplierName(supplierId),
+      claimCount: data.claimCount.size,
+      batchCount: data.batchIds.size,
+      totalQty: data.totalQty
+    })).sort((a, b) => b.totalQty - a.totalQty);
+  };
+
   return (
     <div>
       <div className="stats-grid">
@@ -642,40 +812,114 @@ const StatisticsTab = ({ statistics, claims, formatDate, getUserName }) => {
         </div>
       </div>
 
-      <div className="card">
-        <h2>Recent Claims</h2>
-        {claims.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">📊</div>
-            <div className="empty-state-text">No claims found</div>
-          </div>
-        ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Representative</th>
-                <th>Items Count</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {claims.slice(0, 10).map((claim) => (
-                <tr key={claim._id}>
-                  <td>{formatDate(claim.date)}</td>
-                  <td>{getUserName(claim.rep_id)}</td>
-                  <td>{claim.items?.length || 0}</td>
-                  <td>
-                    {(() => {
-                      const s = claim.status || (claim.verified ? 'Approved' : 'Bilty Pending');
-                      const c = { 'Bilty Pending': 'badge-warning', 'Approval Pending': 'badge-info', 'Approved': 'badge-success', 'Rejected': 'badge-danger' };
-                      return <span className={`badge ${c[s] || 'badge-secondary'}`}>{s}</span>;
-                    })()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="card" style={{ marginBottom: '20px' }}>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '15px' }}>
+          <button className={`btn ${reportTab === 'overview' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setReportTab('overview')}>Overview</button>
+          <button className={`btn ${reportTab === 'batch' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setReportTab('batch')}>Batch-wise</button>
+          <button className={`btn ${reportTab === 'model' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setReportTab('model')}>Model-wise</button>
+          <button className={`btn ${reportTab === 'supplier' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setReportTab('supplier')}>Supplier-wise</button>
+        </div>
+
+        {reportTab === 'overview' && (
+          <>
+            <h2>Recent Claims</h2>
+            {claims.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-state-icon">📊</div>
+                <div className="empty-state-text">No claims found</div>
+              </div>
+            ) : (
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Representative</th>
+                    <th>Items Count</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {claims.slice(0, 10).map((claim) => (
+                    <tr key={claim._id}>
+                      <td>{formatDate(claim.date)}</td>
+                      <td>{getUserName(claim.rep_id)}</td>
+                      <td>{claim.items?.length || 0}</td>
+                      <td>
+                        {(() => {
+                          const s = claim.status || (claim.verified ? 'Approved' : 'Bilty Pending');
+                          const c = { 'Bilty Pending': 'badge-warning', 'Approval Pending': 'badge-info', 'Approved': 'badge-success', 'Rejected': 'badge-danger' };
+                          return <span className={`badge ${c[s] || 'badge-secondary'}`}>{s}</span>;
+                        })()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
+
+        {reportTab === 'batch' && (
+          <>
+            <h2>Batch-wise Claim Report</h2>
+            {(() => {
+              const data = getBatchReport();
+              return data.length === 0 ? (
+                <div className="empty-state"><div className="empty-state-icon">📊</div><div className="empty-state-text">No batch claim data</div></div>
+              ) : (
+                <table className="table">
+                  <thead><tr><th>Batch Code</th><th>Model</th><th>Supplier</th><th>Claims</th><th>Total Claimed Qty</th></tr></thead>
+                  <tbody>
+                    {data.map(row => (
+                      <tr key={row.batchId}><td style={{ fontFamily: 'monospace' }}>{row.batchCode}</td><td>{row.modelName}</td><td>{row.supplierName}</td><td>{row.claimCount}</td><td>{row.totalQty}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              );
+            })()}
+          </>
+        )}
+
+        {reportTab === 'model' && (
+          <>
+            <h2>Model-wise Claim Report</h2>
+            {(() => {
+              const data = getModelReport();
+              return data.length === 0 ? (
+                <div className="empty-state"><div className="empty-state-icon">📊</div><div className="empty-state-text">No model claim data</div></div>
+              ) : (
+                <table className="table">
+                  <thead><tr><th>Model</th><th>Batches</th><th>Claims</th><th>Total Claimed Qty</th></tr></thead>
+                  <tbody>
+                    {data.map(row => (
+                      <tr key={row.modelId}><td>{row.modelName}</td><td>{row.batchCount}</td><td>{row.claimCount}</td><td>{row.totalQty}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              );
+            })()}
+          </>
+        )}
+
+        {reportTab === 'supplier' && (
+          <>
+            <h2>Supplier-wise Claim Report</h2>
+            {(() => {
+              const data = getSupplierReport();
+              return data.length === 0 ? (
+                <div className="empty-state"><div className="empty-state-icon">📊</div><div className="empty-state-text">No supplier claim data</div></div>
+              ) : (
+                <table className="table">
+                  <thead><tr><th>Supplier</th><th>Batches</th><th>Claims</th><th>Total Claimed Qty</th></tr></thead>
+                  <tbody>
+                    {data.map(row => (
+                      <tr key={row.supplierId}><td>{row.supplierName}</td><td>{row.batchCount}</td><td>{row.claimCount}</td><td>{row.totalQty}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              );
+            })()}
+          </>
         )}
       </div>
     </div>
@@ -778,7 +1022,7 @@ const ModelModal = ({ item, productTypes, onSave, onClose }) => {
   );
 };
 
-const BatchModal = ({ item, models, productTypes, users, onSave, onClose }) => {
+const BatchModal = ({ item, models, productTypes, users, suppliers, onSave, onClose }) => {
   const [formData, setFormData] = useState({
     batch_code: item?.batch_code || '',
     model_id: item?.model_id || '',
@@ -786,7 +1030,7 @@ const BatchModal = ({ item, models, productTypes, users, onSave, onClose }) => {
     quantity: item?.quantity || '',
     production_date: item?.production_date ? item.production_date.split('T')[0] : '',
     warranty_period: item?.warranty_period || 12,
-    supplier: item?.supplier || '',
+    supplier_id: item?.supplier_id || '',
     contractor: item?.contractor || '',
     supervisor_id: item?.supervisor_id || '',
     notes: item?.notes || '',
@@ -802,22 +1046,16 @@ const BatchModal = ({ item, models, productTypes, users, onSave, onClose }) => {
     const dataToSend = {
       batch_code: formData.batch_code,
       model_id: formData.model_id,
-      colour: formData.colour || '',
+      colour: formData.colour,
       quantity: parseInt(formData.quantity),
       warranty_period: parseInt(formData.warranty_period),
+      supplier_id: formData.supplier_id,
+      contractor: formData.contractor,
+      supervisor_id: formData.supervisor_id,
       notes: formData.notes || '',
     };
     if (formData.production_date) {
       dataToSend.production_date = new Date(formData.production_date).toISOString();
-    }
-    if (formData.supplier && formData.supplier.trim().length > 0) {
-      dataToSend.supplier = formData.supplier;
-    }
-    if (formData.contractor && formData.contractor.trim().length > 0) {
-      dataToSend.contractor = formData.contractor;
-    }
-    if (formData.supervisor_id) {
-      dataToSend.supervisor_id = formData.supervisor_id;
     }
     onSave(dataToSend);
   };
@@ -847,9 +1085,9 @@ const BatchModal = ({ item, models, productTypes, users, onSave, onClose }) => {
               placeholder="e.g., B2024001" />
           </div>
           <div className="form-group">
-            <label className="form-label">Colour</label>
+            <label className="form-label">Colour *</label>
             <select className="form-control" value={formData.colour}
-              onChange={(e) => setFormData({ ...formData, colour: e.target.value })}>
+              onChange={(e) => setFormData({ ...formData, colour: e.target.value })} required>
               <option value="">Select Colour</option>
               <option value="3000k">3000k</option>
               <option value="4000k">4000k</option>
@@ -872,19 +1110,24 @@ const BatchModal = ({ item, models, productTypes, users, onSave, onClose }) => {
               onChange={(e) => setFormData({ ...formData, warranty_period: e.target.value })} required min="1" />
           </div>
           <div className="form-group">
-            <label className="form-label">Supplier</label>
-            <input type="text" className="form-control" value={formData.supplier}
-              onChange={(e) => setFormData({ ...formData, supplier: e.target.value })} />
+            <label className="form-label">Supplier *</label>
+            <select className="form-control" value={formData.supplier_id}
+              onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })} required>
+              <option value="">Select Supplier</option>
+              {(suppliers || []).filter(s => s.is_active !== false).map(s => (
+                <option key={s._id} value={s._id}>{s.name}</option>
+              ))}
+            </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Contractor</label>
+            <label className="form-label">Contractor *</label>
             <input type="text" className="form-control" value={formData.contractor}
-              onChange={(e) => setFormData({ ...formData, contractor: e.target.value })} />
+              onChange={(e) => setFormData({ ...formData, contractor: e.target.value })} required />
           </div>
           <div className="form-group">
-            <label className="form-label">Supervisor</label>
+            <label className="form-label">Supervisor *</label>
             <select className="form-control" value={formData.supervisor_id}
-              onChange={(e) => setFormData({ ...formData, supervisor_id: e.target.value })}>
+              onChange={(e) => setFormData({ ...formData, supervisor_id: e.target.value })} required>
               <option value="">Select Supervisor</option>
               {(users || []).filter(u => u.is_active !== false).map(u => (
                 <option key={u._id || u.id} value={u._id || u.id}>{u.name}</option>
@@ -1022,6 +1265,113 @@ const UserModal = ({ user, onSave, onClose }) => {
             <button type="submit" className="btn btn-primary">
               {isEdit ? 'Update' : 'Save'}
             </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const SuppliersTab = ({ suppliers, onAdd, onEdit, onDelete }) => {
+  return (
+    <div className="card">
+      <div className="action-bar">
+        <h2>Suppliers Management</h2>
+        <button className="btn btn-primary action-bar-btn" onClick={onAdd}>
+          + Add Supplier
+        </button>
+      </div>
+      {suppliers.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-icon">🏭</div>
+          <div className="empty-state-text">No suppliers found</div>
+          <button className="btn btn-primary" onClick={onAdd}>Add Your First Supplier</button>
+        </div>
+      ) : (
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Contact</th>
+              <th>Email</th>
+              <th>Address</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {suppliers.map((supplier) => (
+              <tr key={supplier._id}>
+                <td>{supplier.name}</td>
+                <td>{supplier.contact || '-'}</td>
+                <td>{supplier.email || '-'}</td>
+                <td>{supplier.address || '-'}</td>
+                <td>
+                  <span className={`badge ${supplier.is_active !== false ? 'badge-success' : 'badge-warning'}`}>
+                    {supplier.is_active !== false ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
+                <td className="table-actions">
+                  <button className="btn btn-secondary" onClick={() => onEdit(supplier)}>Edit</button>
+                  <button className="btn btn-danger" onClick={() => onDelete(supplier._id)}>Delete</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+};
+
+const SupplierModal = ({ item, onSave, onClose }) => {
+  const [formData, setFormData] = useState({
+    name: item?.name || '',
+    contact: item?.contact || '',
+    email: item?.email || '',
+    address: item?.address || '',
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="modal-title">{item ? 'Edit Supplier' : 'Add Supplier'}</h2>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">Name *</label>
+            <input type="text" className="form-control" value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })} required
+              placeholder="e.g., LightTech Corp" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Contact</label>
+            <input type="text" className="form-control" value={formData.contact}
+              onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
+              placeholder="Phone number" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Email</label>
+            <input type="email" className="form-control" value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder="supplier@example.com" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Address</label>
+            <textarea className="form-control" rows="2" value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              placeholder="Full address" />
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary">Save</button>
           </div>
         </form>
       </div>

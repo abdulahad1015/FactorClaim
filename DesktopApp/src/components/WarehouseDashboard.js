@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { merchantsAPI, claimsAPI, usersAPI, batchesAPI, productModelsAPI, productTypesAPI, locationsAPI, getErrorMessage } from '../services/api';
+import { merchantsAPI, claimsAPI, usersAPI, batchesAPI, productModelsAPI, productTypesAPI, locationsAPI, suppliersAPI, getErrorMessage } from '../services/api';
 
 const WarehouseDashboard = () => {
   const [activeTab, setActiveTab] = useState('merchants');
@@ -11,6 +11,7 @@ const WarehouseDashboard = () => {
   const [batches, setBatches] = useState([]);
   const [productModels, setProductModels] = useState([]);
   const [productTypes, setProductTypes] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -28,13 +29,14 @@ const WarehouseDashboard = () => {
         const data = await merchantsAPI.getAll();
         setMerchants(data);
       } else if (activeTab === 'claims') {
-        const [claimsData, usersData, merchantsData, batchesData, modelsData, typesData] = await Promise.all([
+        const [claimsData, usersData, merchantsData, batchesData, modelsData, typesData, suppliersData] = await Promise.all([
           claimsAPI.getAll(),
           usersAPI.getAll(),
           merchantsAPI.getAll(),
           batchesAPI.getAll(),
           productModelsAPI.getAll(),
-          productTypesAPI.getAll()
+          productTypesAPI.getAll(),
+          suppliersAPI.getAll()
         ]);
         setClaims(claimsData);
         setUsers(usersData);
@@ -42,14 +44,16 @@ const WarehouseDashboard = () => {
         setBatches(batchesData);
         setProductModels(modelsData);
         setProductTypes(typesData);
+        setSuppliers(suppliersData);
       } else if (activeTab === 'statistics') {
-        const [claimsData, usersData, merchantsData, batchesData, modelsData, typesData] = await Promise.all([
+        const [claimsData, usersData, merchantsData, batchesData, modelsData, typesData, suppliersData] = await Promise.all([
           claimsAPI.getAll(),
           usersAPI.getAll(),
           merchantsAPI.getAll(),
           batchesAPI.getAll(),
           productModelsAPI.getAll(),
-          productTypesAPI.getAll()
+          productTypesAPI.getAll(),
+          suppliersAPI.getAll()
         ]);
         setClaims(claimsData);
         setUsers(usersData);
@@ -57,6 +61,7 @@ const WarehouseDashboard = () => {
         setBatches(batchesData);
         setProductModels(modelsData);
         setProductTypes(typesData);
+        setSuppliers(suppliersData);
       }
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to load data'));
@@ -227,6 +232,7 @@ const WarehouseDashboard = () => {
                 batches={batches}
                 productModels={productModels}
                 productTypes={productTypes}
+                suppliers={suppliers}
                 getUserName={getUserName}
                 getMerchantName={getMerchantName}
               />
@@ -366,7 +372,7 @@ const ClaimsTab = ({ claims, users, merchants, onView, formatDate, getUserName, 
   );
 };
 
-const StatisticsTab = ({ claims, users, merchants, batches, productModels, productTypes, getUserName, getMerchantName }) => {
+const StatisticsTab = ({ claims, users, merchants, batches, productModels, productTypes, suppliers, getUserName, getMerchantName }) => {
   const totalClaims = claims.length;
   const verifiedClaims = claims.filter(c => c.verified).length;
   const pendingClaims = totalClaims - verifiedClaims;
@@ -444,11 +450,12 @@ const StatisticsTab = ({ claims, users, merchants, batches, productModels, produ
   claims.filter(c => c.verified).forEach(claim => {
     (claim.items || []).forEach(item => {
       const batch = (batches || []).find(b => b._id === String(item.batch_id) || b._id === item.batch_id);
-      if (batch && batch.supplier) {
-        const supplier = batch.supplier;
-        if (!supplierAudit[supplier]) supplierAudit[supplier] = { returns: 0, qty: 0 };
-        supplierAudit[supplier].returns += 1;
-        supplierAudit[supplier].qty += (item.scanned_quantity || item.quantity || 0);
+      if (batch && batch.supplier_id) {
+        const supplierObj = (suppliers || []).find(s => s._id === batch.supplier_id || s.id === batch.supplier_id);
+        const supplierName = supplierObj ? supplierObj.name : 'Unknown';
+        if (!supplierAudit[supplierName]) supplierAudit[supplierName] = { returns: 0, qty: 0 };
+        supplierAudit[supplierName].returns += 1;
+        supplierAudit[supplierName].qty += (item.scanned_quantity || item.quantity || 0);
       }
     });
   });

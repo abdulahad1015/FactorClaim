@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import connect_to_mongo, close_mongo_connection
-from app.routers import auth, users, merchants, claims, product_types, product_models, batches, locations, accounting
+from app.routers import auth, users, merchants, claims, product_types, product_models, batches, locations, accounting, suppliers
 
 app = FastAPI(
     title=settings.app_name,
@@ -29,6 +29,7 @@ app.include_router(merchants.router, prefix="/api/merchants", tags=["merchants"]
 app.include_router(claims.router, prefix="/api/claims", tags=["claims"])
 app.include_router(locations.router, prefix="/api/locations", tags=["locations"])
 app.include_router(accounting.router, prefix="/api/accounting", tags=["accounting"])
+app.include_router(suppliers.router, prefix="/api/suppliers", tags=["suppliers"])
 
 
 @app.on_event("startup")

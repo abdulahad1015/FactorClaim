@@ -41,7 +41,7 @@ class Batch(BaseModel):
     quantity: int = Field(..., gt=0)
     production_date: datetime
     warranty_period: int = Field(..., gt=0, description="Warranty period in months")
-    supplier: Optional[str] = Field(default="", max_length=100)
+    supplier_id: Optional[PyObjectId] = Field(default=None)
     contractor: Optional[str] = Field(default="", max_length=100)
     supervisor_id: Optional[PyObjectId] = Field(default=None)
     notes: Optional[str] = Field(default="", max_length=500)
@@ -60,7 +60,7 @@ class Batch(BaseModel):
                 "quantity": 1000,
                 "production_date": "2024-01-15T00:00:00Z",
                 "warranty_period": 12,
-                "supplier": "LightTech Corp",
+                "supplier_id": "507f1f77bcf86cd799439012",
                 "contractor": "ElectroSupply Ltd",
                 "notes": "First production batch"
             }
@@ -71,14 +71,14 @@ class BatchCreate(BaseModel):
     """Batch creation model"""
     batch_code: str = Field(..., min_length=1, max_length=50)
     model_id: PyObjectId = Field(...)
-    colour: Optional[str] = Field(default="", max_length=50)
+    colour: str = Field(..., min_length=1, max_length=50)
     quantity: int = Field(..., gt=0)
     production_date: datetime
     warranty_period: int = Field(..., gt=0, description="Warranty period in months")
-    supplier: Optional[str] = Field(default="", max_length=100)
-    contractor: Optional[str] = Field(default="", max_length=100)
-    supervisor_id: Optional[PyObjectId] = Field(default=None)
-    notes: Optional[str] = Field(default="", max_length=500)
+    supplier_id: PyObjectId = Field(...)
+    contractor: str = Field(..., min_length=1, max_length=100)
+    supervisor_id: PyObjectId = Field(...)
+    notes: str = Field(default="", max_length=500)
 
     class Config:
         arbitrary_types_allowed = True
@@ -92,7 +92,7 @@ class BatchUpdate(BaseModel):
     quantity: Optional[int] = Field(None, gt=0)
     production_date: Optional[datetime] = None
     warranty_period: Optional[int] = Field(None, gt=0)
-    supplier: Optional[str] = Field(None, max_length=100)
+    supplier_id: Optional[PyObjectId] = None
     contractor: Optional[str] = Field(None, max_length=100)
     supervisor_id: Optional[PyObjectId] = Field(default=None)
     notes: Optional[str] = Field(None, max_length=500)

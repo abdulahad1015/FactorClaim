@@ -2,9 +2,11 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
+from bson import ObjectId
 from ..models.batch import BatchCreate, BatchUpdate
 from ..utils.crud_batch import batch_crud
 from ..utils.dependencies import require_admin, get_current_active_user
+from ..core.database import get_database
 
 
 router = APIRouter()
@@ -152,6 +154,13 @@ async def update_batch(batch_id: str, batch: BatchUpdate):
 @router.delete("/{batch_id}", dependencies=[Depends(require_admin)])
 async def delete_batch(batch_id: str):
     """Delete batch (Admin only)"""
+    db = get_database()
+    claim_count = await db["claims"].count_documents({"items.batch_id": ObjectId(batch_id)})
+    if claim_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete batch: it is referenced in {claim_count} claim(s)"
+        )
     deleted = await batch_crud.delete_batch(batch_id)
     if not deleted:
         raise HTTPException(

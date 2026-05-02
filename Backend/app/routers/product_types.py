@@ -1,8 +1,10 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from bson import ObjectId
 from ..models.product_type import ProductTypeCreate, ProductTypeUpdate
 from ..utils.crud_product_type import product_type_crud
 from ..utils.dependencies import require_admin, get_current_active_user
+from ..core.database import get_database
 
 
 router = APIRouter()
@@ -59,6 +61,13 @@ async def update_product_type(product_type_id: str, product_type: ProductTypeUpd
 @router.delete("/{product_type_id}", dependencies=[Depends(require_admin)])
 async def delete_product_type(product_type_id: str):
     """Delete product type (Admin only)"""
+    db = get_database()
+    model_count = await db["models"].count_documents({"product_type_id": ObjectId(product_type_id)})
+    if model_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete product type: it is referenced by {model_count} model(s)"
+        )
     deleted = await product_type_crud.delete_product_type(product_type_id)
     if not deleted:
         raise HTTPException(

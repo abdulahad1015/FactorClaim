@@ -15,6 +15,8 @@ class CRUDBatch(CRUDBase):
         batch_data = batch_in.dict()
         if "model_id" in batch_data:
             batch_data["model_id"] = ObjectId(batch_data["model_id"])
+        if "supplier_id" in batch_data and batch_data["supplier_id"]:
+            batch_data["supplier_id"] = ObjectId(batch_data["supplier_id"])
         if "supervisor_id" in batch_data and batch_data["supervisor_id"]:
             batch_data["supervisor_id"] = ObjectId(batch_data["supervisor_id"])
         return await self.create(batch_data)
@@ -66,6 +68,8 @@ class CRUDBatch(CRUDBase):
         batch_data = batch_in.dict(exclude_unset=True)
         if "model_id" in batch_data and batch_data["model_id"]:
             batch_data["model_id"] = ObjectId(batch_data["model_id"])
+        if "supplier_id" in batch_data and batch_data["supplier_id"]:
+            batch_data["supplier_id"] = ObjectId(batch_data["supplier_id"])
         if "supervisor_id" in batch_data and batch_data["supervisor_id"]:
             batch_data["supervisor_id"] = ObjectId(batch_data["supervisor_id"])
         return await self.update(batch_id, batch_data)
@@ -75,12 +79,11 @@ class CRUDBatch(CRUDBase):
         return await self.delete(batch_id)
     
     async def search_batches(self, search_term: str) -> List[Dict[str, Any]]:
-        """Search batches by batch_code, colour, supplier, or contractor"""
+        """Search batches by batch_code, colour, or contractor"""
         filter_dict = {
             "$or": [
                 {"batch_code": {"$regex": search_term, "$options": "i"}},
                 {"colour": {"$regex": search_term, "$options": "i"}},
-                {"supplier": {"$regex": search_term, "$options": "i"}},
                 {"contractor": {"$regex": search_term, "$options": "i"}}
             ]
         }

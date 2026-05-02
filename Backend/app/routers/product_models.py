@@ -1,8 +1,10 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from bson import ObjectId
 from ..models.product_model import ProductModelCreate, ProductModelUpdate
 from ..utils.crud_product_model import product_model_crud
 from ..utils.dependencies import require_admin, get_current_active_user
+from ..core.database import get_database
 
 
 router = APIRouter()
@@ -61,6 +63,13 @@ async def update_product_model(model_id: str, product_model: ProductModelUpdate)
 @router.delete("/{model_id}", dependencies=[Depends(require_admin)])
 async def delete_product_model(model_id: str):
     """Delete product model (Admin only)"""
+    db = get_database()
+    batch_count = await db["batches"].count_documents({"model_id": ObjectId(model_id)})
+    if batch_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete model: it is referenced by {batch_count} batch(es)"
+        )
     deleted = await product_model_crud.delete_product_model(model_id)
     if not deleted:
         raise HTTPException(

@@ -3,6 +3,7 @@ from typing import Optional
 from ..models.location import LocationCreate, LocationUpdate
 from ..utils.crud_location import location_crud
 from ..utils.dependencies import get_current_user, require_admin, require_admin_or_rep
+from ..core.database import get_database
 
 router = APIRouter()
 
@@ -67,6 +68,18 @@ async def delete_location(
     current_user=Depends(require_admin)
 ):
     """Delete location (Admin only)"""
+    db = get_database()
+    location = await location_crud.get_location(location_id)
+    if not location:
+        raise HTTPException(status_code=404, detail="Location not found")
+    merchant_count = await db["merchants"].count_documents({
+        "$or": [{"city": location.get("name", "")}, {"province": location.get("province", "")}]
+    })
+    if merchant_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete location: it may be referenced by {merchant_count} merchant(s)"
+        )
     deleted = await location_crud.delete_location(location_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Location not found")

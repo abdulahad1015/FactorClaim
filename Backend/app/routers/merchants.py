@@ -1,8 +1,10 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from bson import ObjectId
 from ..models.merchant import MerchantCreate, MerchantUpdate
 from ..utils.crud_merchant import merchant_crud
 from ..utils.dependencies import require_merchant_managers, get_current_active_user
+from ..core.database import get_database
 
 
 router = APIRouter()
@@ -59,6 +61,13 @@ async def update_merchant(merchant_id: str, merchant: MerchantUpdate):
 @router.delete("/{merchant_id}", dependencies=[Depends(require_merchant_managers)])
 async def delete_merchant(merchant_id: str):
     """Delete merchant (Admin or Warehouse Manager)"""
+    db = get_database()
+    claim_count = await db["claims"].count_documents({"merchant_id": ObjectId(merchant_id)})
+    if claim_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete merchant: it is referenced in {claim_count} claim(s)"
+        )
     deleted = await merchant_crud.delete_merchant(merchant_id)
     if not deleted:
         raise HTTPException(

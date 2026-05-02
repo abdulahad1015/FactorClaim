@@ -1,8 +1,10 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from bson import ObjectId
 from ..models.user import UserCreate, UserUpdate, UserResponse, UserType
 from ..utils.crud_user import user_crud
 from ..utils.dependencies import require_admin, require_admin_or_warehouse, get_current_active_user
+from ..core.database import get_database
 
 
 router = APIRouter()
@@ -77,6 +79,18 @@ async def update_user(user_id: str, user: UserUpdate):
 @router.delete("/{user_id}", dependencies=[Depends(require_admin)])
 async def delete_user(user_id: str):
     """Delete user (Admin only)"""
+    db = get_database()
+    oid = ObjectId(user_id)
+    batch_count = await db["batches"].count_documents({"supervisor_id": oid})
+    claim_count = await db["claims"].count_documents({
+        "$or": [{"rep_id": oid}, {"verified_by": oid}]
+    })
+    total_refs = batch_count + claim_count
+    if total_refs > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete user: referenced in {batch_count} batch(es) and {claim_count} claim(s)"
+        )
     deleted = await user_crud.delete_user(user_id)
     if not deleted:
         raise HTTPException(

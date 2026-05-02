@@ -288,6 +288,34 @@ export const locationsAPI = {
   },
 };
 
+// Suppliers API
+export const suppliersAPI = {
+  getAll: async () => {
+    const response = await api.get('/api/suppliers/');
+    return response.data;
+  },
+
+  getById: async (id) => {
+    const response = await api.get(`/api/suppliers/${id}`);
+    return response.data;
+  },
+
+  create: async (data) => {
+    const response = await api.post('/api/suppliers/', data);
+    return response.data;
+  },
+
+  update: async (id, data) => {
+    const response = await api.put(`/api/suppliers/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id) => {
+    const response = await api.delete(`/api/suppliers/${id}`);
+    return response.data;
+  },
+};
+
 export const accountingAPI = {
   downloadSaleReturnCSV: async (claimId) => {
     const response = await api.get(`/api/accounting/sale-return/${claimId}/csv`, {
