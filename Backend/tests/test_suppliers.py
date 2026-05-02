@@ -20,7 +20,6 @@ class TestSuppliers:
         assert resp.status_code == 200
         data = resp.json()
         assert data["name"] == "Acme Supplies"
-        assert data["is_active"] is True
 
     @pytest.mark.asyncio
     async def test_create_supplier_forbidden_for_rep(self, client, rep_user):

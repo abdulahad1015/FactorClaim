@@ -84,11 +84,17 @@ class TestClaims:
         assert resp.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_get_unverified_claims(self, client, admin_user, sample_claim):
+    async def test_get_unverified_claims(self, client, admin_user, sample_claim, setup_test_db):
+        """Unverified endpoint excludes Bilty Pending; update sample to Approval Pending first."""
         _, token = admin_user
+        # Move sample claim past Bilty Pending so it shows in the unverified list
+        from bson import ObjectId as OID
+        await setup_test_db["claims"].update_one(
+            {"_id": sample_claim["_id"]},
+            {"$set": {"status": "Approval Pending", "bilty_number": "BLT-X"}},
+        )
         resp = await client.get("/api/claims/unverified", headers=auth_header(token))
         assert resp.status_code == 200
-        # sample_claim is unverified by default
         assert len(resp.json()) >= 1
 
     @pytest.mark.asyncio

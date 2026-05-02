@@ -1,6 +1,6 @@
 {
   "name": "factorclaim-desktop",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "FactorClaim Desktop Application - Electron + React",
   "author": "FactorClaim",
   "main": "public/electron.js",
