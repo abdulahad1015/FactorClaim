@@ -1380,6 +1380,34 @@ const SupplierModal = ({ item, onSave, onClose }) => {
 };
 
 const ClaimsTab = ({ claims, onView, formatDate, getUserName, getMerchantName }) => {
+  const exportApprovedCSV = () => {
+    const approved = claims.filter(c => c.status === 'Approved');
+    if (approved.length === 0) {
+      alert('No approved claims to export.');
+      return;
+    }
+    const headers = ['Claim ID', 'Date', 'Representative', 'Merchant', 'Bilty Number', 'Items', 'Status'];
+    const rows = approved.map(c => [
+      c.claim_id || '',
+      formatDate(c.date),
+      getUserName(c.rep_id),
+      getMerchantName(c.merchant_id),
+      c.bilty_number || '',
+      c.items?.length || 0,
+      c.status || '',
+    ]);
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `approved-claims-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="card">
       <div className="action-bar">
@@ -1387,6 +1415,9 @@ const ClaimsTab = ({ claims, onView, formatDate, getUserName, getMerchantName })
           <h2>Claims Management</h2>
           <p>View all verified and pending claims</p>
         </div>
+        <button className="btn btn-success" onClick={exportApprovedCSV}>
+          Export Approved CSV
+        </button>
       </div>
       {claims.length === 0 ? (
         <div className="empty-state">
@@ -1397,9 +1428,11 @@ const ClaimsTab = ({ claims, onView, formatDate, getUserName, getMerchantName })
         <table className="table">
           <thead>
             <tr>
+              <th>Claim ID</th>
               <th>Date</th>
               <th>Representative</th>
-              <th>Items Count</th>
+              <th>Bilty No.</th>
+              <th>Items</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -1407,13 +1440,17 @@ const ClaimsTab = ({ claims, onView, formatDate, getUserName, getMerchantName })
           <tbody>
             {claims.map((claim) => (
               <tr key={claim._id}>
+                <td style={{ fontFamily: 'monospace', color: '#0066cc' }}>{claim.claim_id || '—'}</td>
                 <td>{formatDate(claim.date)}</td>
                 <td>{getUserName(claim.rep_id)}</td>
+                <td style={{ fontFamily: 'monospace' }}>{claim.bilty_number || '—'}</td>
                 <td>{claim.items?.length || 0}</td>
                 <td>
-                  <span className={`badge ${claim.verified ? 'badge-success' : 'badge-warning'}`}>
-                    {claim.verified ? 'Verified' : 'Pending'}
-                  </span>
+                  {(() => {
+                    const s = claim.status || (claim.verified ? 'Approved' : 'Bilty Pending');
+                    const c = { 'Bilty Pending': 'badge-warning', 'Approval Pending': 'badge-info', 'Approved': 'badge-success', 'Rejected': 'badge-danger' };
+                    return <span className={`badge ${c[s] || 'badge-secondary'}`}>{s}</span>;
+                  })()}
                 </td>
                 <td>
                   <button className="btn btn-secondary" onClick={() => onView(claim)}>
@@ -1556,7 +1593,7 @@ const ClaimModal = ({ claim, batches, models, productTypes, users, merchants, on
                   </div>
                   <div>
                     <strong>Verification Date:</strong>
-                    <div>{formatDate(claim.verification_date)}</div>
+                    <div>{formatDate(claim.verified_at)}</div>
                   </div>
                 </div>
               </div>

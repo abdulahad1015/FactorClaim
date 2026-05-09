@@ -336,10 +336,11 @@ const ClaimsTab = ({ claims, users, merchants, onView, formatDate, getUserName, 
         <table className="table">
           <thead>
             <tr>
+              <th>Claim ID</th>
               <th>Date</th>
               <th>Representative</th>
               <th>Merchant</th>
-              <th>Items</th>
+              <th>Bilty No.</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -347,10 +348,11 @@ const ClaimsTab = ({ claims, users, merchants, onView, formatDate, getUserName, 
           <tbody>
             {claims.map((claim) => (
               <tr key={claim._id}>
+                <td style={{ fontFamily: 'monospace', color: '#0066cc' }}>{claim.claim_id || '—'}</td>
                 <td>{formatDate(claim.date)}</td>
                 <td>{getUserName(claim.rep_id)}</td>
                 <td>{getMerchantName(claim.merchant_id)}</td>
-                <td>{claim.items?.length || 0} items</td>
+                <td style={{ fontFamily: 'monospace' }}>{claim.bilty_number || '—'}</td>
                 <td>
                   {(() => {
                     const s = claim.status || (claim.verified ? 'Approved' : 'Bilty Pending');
