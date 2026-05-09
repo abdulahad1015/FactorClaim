@@ -112,7 +112,7 @@ const Login = () => {
         </form>
         
         <div className="login-footer">
-          <p>Version 2.0.4</p>
+          <p>Version 2.0.5</p>
         </div>
       </div>
     </div>

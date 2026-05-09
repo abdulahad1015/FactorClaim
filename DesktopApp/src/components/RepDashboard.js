@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { merchantsAPI, claimsAPI, batchesAPI, productModelsAPI, productTypesAPI, locationsAPI, getErrorMessage } from '../services/api';
+import { merchantsAPI, claimsAPI, batchesAPI, productModelsAPI, productTypesAPI, getErrorMessage } from '../services/api';
 
 const RepDashboard = () => {
   const [activeTab, setActiveTab] = useState('merchants');
@@ -302,34 +302,18 @@ const ClaimModal = ({ merchants, batches, productModels, productTypes, userId, o
   const [batchCode, setBatchCode] = useState('');
   const [scanError, setScanError] = useState('');
   const [isScanning, setIsScanning] = useState(false);
-  const [locations, setLocations] = useState([]);
-  const [citySearch, setCitySearch] = useState('');
-  const [showCityDropdown, setShowCityDropdown] = useState(false);
-  const [newCityName, setNewCityName] = useState('');
-  const [showNewCityInput, setShowNewCityInput] = useState(false);
   const [warrantyWarnings, setWarrantyWarnings] = useState(null);
   const [forceAddReasons, setForceAddReasons] = useState({});
   const [showForceAddDialog, setShowForceAddDialog] = useState(false);
   const [pendingClaimData, setPendingClaimData] = useState(null);
 
-  // Load locations on mount
-  useEffect(() => {
-    const loadLocations = async () => {
-      try {
-        const data = await locationsAPI.getAll();
-        setLocations(data);
-      } catch (err) {
-        console.error('Failed to load locations:', err);
-      }
-    };
-    loadLocations();
-  }, []);
-
-  const provinces = [...new Set(locations.map(l => l.province))].sort();
-  const filteredCities = locations.filter(l => 
-    (!filterProvince || l.province === filterProvince) &&
-    (!citySearch || l.name.toLowerCase().includes(citySearch.toLowerCase()))
-  );
+  // Only show provinces/cities where merchants actually exist
+  const provinces = [...new Set(merchants.filter(m => m.province).map(m => m.province))].sort();
+  const filteredCities = [...new Set(
+    merchants
+      .filter(m => m.city && (!filterProvince || m.province === filterProvince))
+      .map(m => m.city)
+  )].sort().map(city => ({ name: city }));
   const filteredMerchants = merchants.filter(m => {
     if (filterProvince && m.province !== filterProvince) return false;
     if (filterCity && m.city !== filterCity) return false;
@@ -513,7 +497,6 @@ const ClaimModal = ({ merchants, batches, productModels, productTypes, userId, o
                 onChange={(e) => {
                   setFilterProvince(e.target.value);
                   setFilterCity('');
-                  setCitySearch('');
                   setFormData({ ...formData, merchant_id: '' });
                 }}
               >
@@ -523,80 +506,24 @@ const ClaimModal = ({ merchants, batches, productModels, productTypes, userId, o
                 ))}
               </select>
             </div>
-            <div className="form-group" style={{ flex: 1, position: 'relative' }}>
+            <div className="form-group" style={{ flex: 1 }}>
               <label className="form-label">City</label>
-              <input
-                type="text"
+              <select
                 className="form-control"
-                value={filterCity || citySearch}
-                onChange={(e) => {
-                  setCitySearch(e.target.value);
-                  setFilterCity('');
-                  setShowCityDropdown(true);
-                }}
-                onFocus={() => setShowCityDropdown(true)}
-                placeholder="Type to search cities..."
+                value={filterCity}
                 disabled={!filterProvince}
-              />
-              {showCityDropdown && citySearch && filteredCities.length > 0 && (
-                <div style={{ position: 'absolute', zIndex: 100, background: '#fff', border: '1px solid #ddd', maxHeight: '200px', overflowY: 'auto', width: '100%', borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-                  {filteredCities.map((loc) => (
-                    <div key={loc._id || loc.name} style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #eee' }}
-                      onClick={() => {
-                        setFilterCity(loc.name);
-                        setCitySearch('');
-                        setShowCityDropdown(false);
-                        setFormData({ ...formData, merchant_id: '' });
-                      }}
-                      onMouseDown={(e) => e.preventDefault()}
-                    >
-                      {loc.name}
-                    </div>
-                  ))}
-                  <div style={{ padding: '8px 12px', cursor: 'pointer', color: '#0066cc', fontWeight: 'bold', borderTop: '2px solid #ddd' }}
-                    onClick={() => { setShowNewCityInput(true); setShowCityDropdown(false); setNewCityName(citySearch); }}
-                    onMouseDown={(e) => e.preventDefault()}
-                  >
-                    + Add New City: "{citySearch}"
-                  </div>
-                </div>
-              )}
-              {showCityDropdown && citySearch && filteredCities.length === 0 && (
-                <div style={{ position: 'absolute', zIndex: 100, background: '#fff', border: '1px solid #ddd', width: '100%', borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-                  <div style={{ padding: '8px 12px', color: '#999' }}>No cities found</div>
-                  <div style={{ padding: '8px 12px', cursor: 'pointer', color: '#0066cc', fontWeight: 'bold', borderTop: '1px solid #eee' }}
-                    onClick={() => { setShowNewCityInput(true); setShowCityDropdown(false); setNewCityName(citySearch); }}
-                    onMouseDown={(e) => e.preventDefault()}
-                  >
-                    + Add New City: "{citySearch}"
-                  </div>
-                </div>
-              )}
-              {filterCity && (
-                <button type="button" style={{ position: 'absolute', right: '8px', top: '32px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '16px', color: '#999' }}
-                  onClick={() => { setFilterCity(''); setCitySearch(''); setFormData({ ...formData, merchant_id: '' }); }}>×</button>
-              )}
+                onChange={(e) => {
+                  setFilterCity(e.target.value);
+                  setFormData({ ...formData, merchant_id: '' });
+                }}
+              >
+                <option value="">All Cities</option>
+                {filteredCities.map((loc) => (
+                  <option key={loc.name} value={loc.name}>{loc.name}</option>
+                ))}
+              </select>
             </div>
           </div>
-          {showNewCityInput && filterProvince && (
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', padding: '10px', background: '#f0f8ff', borderRadius: '4px' }}>
-              <input type="text" className="form-control" value={newCityName}
-                onChange={(e) => setNewCityName(e.target.value)} placeholder="New city name" style={{ flex: 1 }} />
-              <button type="button" className="btn btn-primary" onClick={async () => {
-                if (!newCityName.trim()) return;
-                try {
-                  await locationsAPI.create({ name: newCityName.trim(), province: filterProvince });
-                  const data = await locationsAPI.getAll();
-                  setLocations(data);
-                  setFilterCity(newCityName.trim());
-                  setShowNewCityInput(false);
-                  setNewCityName('');
-                  setCitySearch('');
-                } catch (err) { alert(getErrorMessage(err, 'Failed to create city')); }
-              }}>Add</button>
-              <button type="button" className="btn btn-secondary" onClick={() => { setShowNewCityInput(false); setNewCityName(''); }}>Cancel</button>
-            </div>
-          )}
           <div className="form-group">
             <label className="form-label">Merchant *</label>
             <select
@@ -605,7 +532,7 @@ const ClaimModal = ({ merchants, batches, productModels, productTypes, userId, o
               onChange={(e) => setFormData({ ...formData, merchant_id: e.target.value })}
               required
             >
-              <option value="">Select Merchant{filterProvince ? ` (${filteredMerchants.length} found)` : ''}</option>
+              <option value="">— select merchant —</option>
               {filteredMerchants.map((merchant) => (
                 <option key={merchant._id} value={merchant._id}>
                   {merchant.name}{merchant.city ? ` — ${merchant.city}` : ''}
