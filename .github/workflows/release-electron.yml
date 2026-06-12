@@ -72,7 +72,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Linux ARM64 build (ARM Chromebooks like Lenovo, Raspberry Pi, etc.)
+  # Linux ARM64 build (ARM Chromebooks)
   release-linux-arm64:
     runs-on: ubuntu-24.04-arm
     permissions:
@@ -99,6 +99,7 @@ jobs:
       working-directory: ./DesktopApp
       run: npm ci
 
+    # Build React first, then package without rebuilding
     - name: Build React app
       working-directory: ./DesktopApp
       env:
@@ -106,9 +107,35 @@ jobs:
         REACT_APP_API_TIMEOUT: 30000
       run: npm run build
 
+    # Pass SKIP_BUILD=true so electron-builder doesn't rebuild React again
     - name: Package Electron app (Linux ARM64)
       working-directory: ./DesktopApp
+      env:
+        SKIP_BUILD: true
       run: npx electron-builder --linux --arm64 --publish never
+
+    # Generate latest-linux-arm64.yml for auto-updater
+    - name: Generate latest-linux-arm64.yml
+      working-directory: ./DesktopApp
+      run: |
+        VERSION=$(node -p "require('./package.json').version")
+        APPIMAGE=$(ls dist/*arm64*.AppImage)
+        HASH=$(sha512sum "$APPIMAGE" | cut -d' ' -f1)
+        SIZE=$(stat -c%s "$APPIMAGE")
+        FILENAME=$(basename "$APPIMAGE")
+        DATE=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+        cat > dist/latest-linux-arm64.yml << YMLEOF
+        version: $VERSION
+        files:
+          - url: $FILENAME
+            sha512: $HASH
+            size: $SIZE
+        path: $FILENAME
+        sha512: $HASH
+        releaseDate: '$DATE'
+        YMLEOF
+        echo "Generated latest-linux-arm64.yml:"
+        cat dist/latest-linux-arm64.yml
 
     - name: Upload Linux ARM64 release
       uses: softprops/action-gh-release@v1
@@ -116,6 +143,7 @@ jobs:
         files: |
           DesktopApp/dist/*arm64*.AppImage
           DesktopApp/dist/*arm64*.deb
+          DesktopApp/dist/latest-linux-arm64.yml
         draft: false
         prerelease: false
       env:
