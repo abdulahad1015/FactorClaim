@@ -2,22 +2,18 @@ name: Release Electron App
 on:
   push:
     tags:
-      - 'v*.*.*'  # Triggers on version tags like v1.0.0, v2.1.3, etc.
+      - 'v*.*.*'
+
 jobs:
-  release:
-    runs-on: ${{ matrix.os }}
+  # Windows build (x64)
+  release-windows:
+    runs-on: windows-latest
     permissions:
-      contents: write  # Required to create releases
-    
-    strategy:
-      matrix:
-        os: [windows-latest, ubuntu-latest]
-        # Add macos-latest for Mac builds if needed
-    
+      contents: write
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
@@ -25,41 +21,22 @@ jobs:
         cache: 'npm'
         cache-dependency-path: DesktopApp/package-lock.json
 
-    # Linux only: install Electron dependencies
-    - name: Install Linux dependencies
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libgtk-3-0 libnotify4 libnss3 libxss1 \
-          libxtst6 xdg-utils libatspi2.0-0 libdrm2 libgbm1 \
-          libasound2t64 libx11-xcb1 fakeroot rpm
-
     - name: Install dependencies
       working-directory: ./DesktopApp
       run: npm ci
-    
+
     - name: Build React app
       working-directory: ./DesktopApp
       env:
         REACT_APP_API_BASE_URL: https://factor-claim.vercel.app
         REACT_APP_API_TIMEOUT: 30000
       run: npm run build
-    
-    - name: Package Electron app (Windows)
-      if: matrix.os == 'windows-latest'
+
+    - name: Package Electron app
       working-directory: ./DesktopApp
       run: npm run make
 
-    # --publish never stops electron-builder from trying to upload itself
-    # softprops/action-gh-release handles the upload instead
-    - name: Package Electron app (Linux)
-      if: matrix.os == 'ubuntu-latest'
-      working-directory: ./DesktopApp
-      run: npx electron-builder --linux --publish never
-    
-    # Windows only: generate latest.yml for auto-updater
     - name: Generate latest.yml for auto-updater
-      if: matrix.os == 'windows-latest'
       working-directory: ./DesktopApp
       shell: pwsh
       run: |
@@ -79,14 +56,9 @@ jobs:
         sha512: $hash
         releaseDate: '$date'
         "@ | Out-File -FilePath "out/make/squirrel.windows/x64/latest.yml" -Encoding utf8
-          Write-Host "Generated latest.yml for version $version"
-        } else {
-          Write-Host "WARNING: FactorClaimSetup.exe not found, skipping latest.yml"
         }
 
-    # Windows: upload exe, nupkg, RELEASES, latest.yml
-    - name: Create Release (Windows)
-      if: matrix.os == 'windows-latest'
+    - name: Upload Windows release
       uses: softprops/action-gh-release@v1
       with:
         files: |
@@ -100,14 +72,50 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    # Linux: upload AppImage and .deb
-    - name: Create Release (Linux)
-      if: matrix.os == 'ubuntu-latest'
+  # Linux ARM64 build (ARM Chromebooks like Lenovo, Raspberry Pi, etc.)
+  release-linux-arm64:
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: DesktopApp/package-lock.json
+
+    - name: Install Linux dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgtk-3-0 libnotify4 libnss3 libxss1 \
+          libxtst6 xdg-utils libatspi2.0-0 libdrm2 libgbm1 \
+          libasound2t64 libx11-xcb1 fakeroot rpm
+
+    - name: Install dependencies
+      working-directory: ./DesktopApp
+      run: npm ci
+
+    - name: Build React app
+      working-directory: ./DesktopApp
+      env:
+        REACT_APP_API_BASE_URL: https://factor-claim.vercel.app
+        REACT_APP_API_TIMEOUT: 30000
+      run: npm run build
+
+    - name: Package Electron app (Linux ARM64)
+      working-directory: ./DesktopApp
+      run: npx electron-builder --linux --arm64 --publish never
+
+    - name: Upload Linux ARM64 release
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          DesktopApp/dist/*.AppImage
-          DesktopApp/dist/*.deb
+          DesktopApp/dist/*arm64*.AppImage
+          DesktopApp/dist/*arm64*.deb
         draft: false
         prerelease: false
       env:
