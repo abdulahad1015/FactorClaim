@@ -50,10 +50,12 @@ jobs:
       working-directory: ./DesktopApp
       run: npm run make
 
+    # --publish never stops electron-builder from trying to upload itself
+    # softprops/action-gh-release handles the upload instead
     - name: Package Electron app (Linux)
       if: matrix.os == 'ubuntu-latest'
       working-directory: ./DesktopApp
-      run: npm run electron-build-linux
+      run: npx electron-builder --linux --publish never
     
     # Windows only: generate latest.yml for auto-updater
     - name: Generate latest.yml for auto-updater
