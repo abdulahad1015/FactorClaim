@@ -1,6 +1,6 @@
 {
   "name": "factorclaim-desktop",
-  "version": "2.0.5",
+  "version": "2.0.11",
   "description": "FactorClaim Desktop Application - Electron + React",
   "author": "FactorClaim",
   "main": "public/electron.js",
@@ -28,9 +28,15 @@
     "appId": "com.factorclaim.app",
     "productName": "FactorClaim",
     "files": [
-      "build/**/*",
       "public/electron.js",
-      "public/preload.js"
+      "public/preload.js",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "build",
+        "to": "build"
+      }
     ],
     "directories": {
       "buildResources": "public"
